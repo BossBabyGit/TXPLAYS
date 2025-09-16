@@ -1,13 +1,18 @@
 <main class="pl-rail relative z-10 pb-20">
-      <section class="max-w-7xl mx-auto px-6 pt-12">
-        <!-- Page header -->
-        <div class="text-center">
+      <section class="max-w-7xl mx-auto px-6 pt-12 hero-section">
+        <div class="absolute inset-0 -z-10 pointer-events-none">
+          <div class="hero-sun" style="--hero-img: url('{{ASSET_BASE}}/images/background.png'); --sun-size: min(1200px,95vw)"></div>
+          <div class="hero-fade"></div>
+        </div>
+        <div class="relative z-10">
+          <!-- Page header -->
+          <div class="text-center">
           <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-brand via-violet to-pink-brand">Latest Videos</h1>
           <p class="mt-3 text-white/70">Fresh highlights, guides, and viewer challenges.</p>
-        </div>
+          </div>
 
-        <!-- Videos grid -->
-        <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <!-- Videos grid -->
+          <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <!-- CARD -->
           <article class="glass vcard tilt">
             <div class="vframe">
@@ -134,14 +139,15 @@
               <div class="stats"><span class="stat-pill"><i data-lucide="clock" class="w-3.5 h-3.5"></i>1 month ago</span><span class="stat-pill"><i data-lucide="eye" class="w-3.5 h-3.5"></i>51,889</span></div>
             </div>
           </article>
-        </div>
+          </div>
 
-        <!-- Load more -->
-        <div class="mt-10 text-center">
+          <!-- Load more -->
+          <div class="mt-10 text-center">
           <button class="magnetic btn-primary" onclick="window.open('https://www.youtube.com/@YOURCHANNEL/videos','_blank')" aria-label="Load more videos">
             <i data-lucide="youtube"></i>
             <span>Load More Videos</span>
           </button>
+          </div>
         </div>
       </section>
     </main>

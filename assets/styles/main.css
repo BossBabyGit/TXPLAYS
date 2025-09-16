@@ -12,6 +12,10 @@
   --gift-stroke: #0b0d14;
 }
 
+:root:has(.nav-rail.collapsed) {
+  --rail-pad: 4rem;
+}
+
 html,
 body {
   height: 100%;
@@ -190,12 +194,16 @@ footer.pl-rail {
   margin: 0 4px;
 }
 
-.nav-rail.collapsed .nav-item .nav-label,
-.nav-rail.collapsed .nav-item > span {
+.nav-rail.collapsed .nav-item .nav-label {
   max-width: 0;
   opacity: 0;
   transform: translateX(-6px);
+  margin-left: 0;
   overflow: hidden;
+}
+
+.nav-rail.collapsed .nav-bubble {
+  margin-right: 0;
 }
 
 .nav-item i {

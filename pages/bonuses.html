@@ -33,7 +33,7 @@
     <canvas id="spotlight" class="spotlight"></canvas>
 
         <!-- Sidebar (colorful + toggleable) -->
-    <aside class="nav-rail fixed left-0 top-0 h-full z-50">
+    <aside class="nav-rail collapsed fixed left-0 top-0 h-full z-50">
       <div class="rail glass h-full flex flex-col items-center pt-6 gap-2 overflow-hidden relative">
         <span class="rail-active pointer-events-none"></span>
         <a href="../index.html#home" class="nav-item" aria-label="Home" style="--accent:#60A5FA">
@@ -85,15 +85,20 @@
     </header>
 
     <main class="pl-rail relative z-10 pb-20">
-      <section class="max-w-7xl mx-auto px-6 pt-12">
-        <!-- Page header -->
-        <div class="text-center">
+      <section class="max-w-7xl mx-auto px-6 pt-12 hero-section">
+        <div class="absolute inset-0 -z-10 pointer-events-none">
+          <div class="hero-sun" style="--hero-img: url('../assets/images/background.png'); --sun-size: min(1200px,95vw)"></div>
+          <div class="hero-fade"></div>
+        </div>
+        <div class="relative z-10">
+          <!-- Page header -->
+          <div class="text-center">
           <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-brand via-violet to-pink-brand">Exclusive Bonuses</h1>
           <p class="mt-3 text-white/70">Claim your special bonuses and boost your bankroll. TRUE rewards for TRUE players.</p>
-        </div>
+          </div>
 
-        <!-- Main bonus card -->
-        <div class="mt-10 grid lg:grid-cols-[380px,1fr] gap-6 items-stretch">
+          <!-- Main bonus card -->
+          <div class="mt-10 grid lg:grid-cols-[380px,1fr] gap-6 items-stretch">
           <div class="glass rounded-3xl p-4 flex items-center justify-center shadow-card">
             <img src="../assets/images/bonus.png" alt="Main Bonus" class="rounded-2xl w-full h-full object-contain"/>
           </div>
@@ -147,11 +152,9 @@
               </div>
             </div>
           </div>
-        </div>
-        </div>
 
-        <!-- Small bonuses grid -->
-        <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <!-- Small bonuses grid -->
+          <div class="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div class="glass rounded-2xl p-6 text-center shadow-card">
             <div class="text-xl font-extrabold mb-1" style="color:#60A5FA">3K Leaderboard</div>
             <div class="text-white/80 mb-2">(Top 10 prizes)</div>
