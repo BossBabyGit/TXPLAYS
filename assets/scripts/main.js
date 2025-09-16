@@ -454,15 +454,16 @@ window.tailwind.config = {
       wrap.innerHTML = "";
       entries.slice(3, 20).forEach((entry) => {
         const row = document.createElement("div");
-        row.className = "glass rounded-2xl p-4 grid grid-cols-[40px,1fr,1fr,120px] gap-3 items-center";
+        row.className =
+          "glass rounded-2xl p-4 grid grid-cols-[auto,1fr] sm:grid-cols-[40px,1fr,1fr,120px] gap-x-3 gap-y-2 items-start sm:items-center";
         row.innerHTML = `
           <div class="text-white/70 font-semibold">#${entry.rank}</div>
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-white/10 grid place-items-center"><i data-lucide="user" class="w-4 h-4"></i></div>
+            <div class="grid h-8 w-8 place-items-center rounded-xl bg-white/10"><i data-lucide="user" class="h-4 w-4"></i></div>
             <div class="truncate">${entry.username}</div>
           </div>
-          <div class="text-white/80">${formatMoney(entry.total_wagered)}</div>
-          <div class="text-right"><span class="gift" aria-hidden="true">
+          <div class="col-span-2 text-right text-white/80 sm:col-span-1 sm:text-left">${formatMoney(entry.total_wagered)}</div>
+          <div class="col-span-2 flex items-center justify-end gap-2 text-right sm:col-span-1 sm:justify-end"><span class="gift" aria-hidden="true">
   <svg viewBox="0 0 24 24" class="gift-svg">
     <defs>
       <linearGradient id="gift-grad" x1="0" y1="0" x2="1" y2="1">
@@ -476,7 +477,7 @@ window.tailwind.config = {
     <path d="M12 8 c-1.6-3 -4.2-3.6 -5.2-2.1 c-.9 1.4 .6 2.8 2.9 3.4 M12 8 c1.6-3 4.2-3.6 5.2-2.1 c.9 1.4 -.6 2.8 -2.9 3.4" fill="none" stroke="var(--gift-stroke)"/>
     <circle cx="12" cy="9" r="1.2" class="fill" stroke="var(--gift-stroke)"/>
   </svg>
-</span>${formatMoney(entry.prize || 0)}</span></div>
+</span><span>${formatMoney(entry.prize || 0)}</span></div>
         `;
         wrap.appendChild(row);
       });

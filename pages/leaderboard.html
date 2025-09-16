@@ -87,11 +87,7 @@
     <main class="pl-rail relative z-10">
       <section class="relative pt-10 pb-14 hero-section">
         <div class="hero-backdrop">
-        <div
-          class="hero-sun"
-          data-hero-img="../assets/images/background.png"
-          style="--hero-img: url('../assets/images/background.png')"
-        ></div>
+        <div class="hero-sun" style="--hero-img: none"></div>
           <div class="hero-fade"></div>
         </div>
         <div class="max-w-7xl mx-auto px-6 relative z-10">
@@ -270,22 +266,22 @@
 
           <!-- Countdown -->
           <div class="mt-10 grid">
-            <div class="glass rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo to-violet grid place-items-center"><i data-lucide="hourglass" class="w-5 h-5"></i></div>
+            <div class="glass rounded-3xl p-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex items-start gap-3 text-center sm:items-center sm:text-left">
+                <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo to-violet"><i data-lucide="hourglass" class="h-5 w-5"></i></div>
                 <div class="text-sm">
                   <div class="font-semibold">Time left to Wager</div>
                   <div class="text-white/60" id="countdown-sub">Resets Monthly 00:00 (CST)</div>
                 </div>
               </div>
-              <div class="flex items-center gap-3 text-center">
-                <div class="min-w-[70px]"><div class="text-3xl font-extrabold flip" id="d">0</div><div class="text-xs text-white/60">D</div></div>
-                <div class="text-white/30">:</div>
-                <div class="min-w-[70px]"><div class="text-3xl font-extrabold flip" id="h">00</div><div class="text-xs text-white/60">H</div></div>
-                <div class="text-white/30">:</div>
-                <div class="min-w-[70px]"><div class="text-3xl font-extrabold flip" id="m">00</div><div class="text-xs text-white/60">M</div></div>
-                <div class="text-white/30">:</div>
-                <div class="min-w-[70px]"><div class="text-3xl font-extrabold flip" id="s">00</div><div class="text-xs text-white/60">S</div></div>
+              <div class="flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center sm:w-auto sm:gap-4">
+                <div class="min-w-[56px]"><div class="text-2xl font-extrabold flip sm:text-3xl" id="d">0</div><div class="text-xs text-white/60">D</div></div>
+                <div class="hidden text-white/30 sm:block">:</div>
+                <div class="min-w-[56px]"><div class="text-2xl font-extrabold flip sm:text-3xl" id="h">00</div><div class="text-xs text-white/60">H</div></div>
+                <div class="hidden text-white/30 sm:block">:</div>
+                <div class="min-w-[56px]"><div class="text-2xl font-extrabold flip sm:text-3xl" id="m">00</div><div class="text-xs text-white/60">M</div></div>
+                <div class="hidden text-white/30 sm:block">:</div>
+                <div class="min-w-[56px]"><div class="text-2xl font-extrabold flip sm:text-3xl" id="s">00</div><div class="text-xs text-white/60">S</div></div>
               </div>
             </div>
           </div>
@@ -319,6 +315,7 @@
         </div>
       </section>
     </main>
+
         <!-- FOOTER -->
     <footer class="pl-rail border-t border-white/10 relative z-10">
       <div class="max-w-7xl mx-auto px-6 py-10 grid gap-8 sm:grid-cols-3">
