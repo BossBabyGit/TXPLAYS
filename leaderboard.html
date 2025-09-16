@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TxPlays — Leaderboard</title>
+
+    <!-- Poppins font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Poppins", "ui-sans-serif", "system-ui"] },
+            colors: {
+              pink: { brand: "#ec4899" },
+              blue: { brand: "#3b82f6" },
+              violet: { brand: "#7c3aed" },
+              indigo: { brand: "#4f46e5" },
+              purple: { brand: "#a855f7" },
+              discord: "#5865F2",
+              discordDark: "#4752C4"
+            },
+            dropShadow: {
+              neon: "0 0 10px rgba(59,130,246,0.75)",
+              neonPink: "0 0 10px rgba(236,72,153,0.75)",
+            },
+            boxShadow: {
+              card: "0 20px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06)",
+              ring: "0 0 0 1px rgba(255,255,255,.08)",
+            }
+          }
+        }
+      };
+    </script>
+
+    <!-- Lucide icons (UMD) -->
+    <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-1: #06070d;
+        --bg-2: #0b0d14;
+        --grid: rgba(255,255,255,0.06);
+        --glass: rgba(18, 22, 34, .55);
+        --glass-brd: rgba(255,255,255,.08);
+        --page-bg: #0b0d14;
+        --gift-a: #7cf0ff; /* pink */
+        --gift-b: #ff6ad5; /* aqua */
+        --gift-stroke: #0b0d14; /* dark outline */
+        /* sidebar padding for content */
+        --rail-pad: 14rem; /* expanded by default */
+      }
+      html, body { height: 64%; background: var(--bg-2); }
+
+      .bg-stack { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
+      .bg-aurora, .bg-grid, .bg-noise { position: absolute; inset: 0; }
+      .bg-aurora { filter: blur(40px) saturate(120%); mix-blend-mode: screen; opacity: .9; }
+      .bg-aurora::before, .bg-aurora::after { content: ""; position: absolute; inset: -20% -20%; background: conic-gradient(from 90deg at 30% 30%, rgba(59,130,246,.35), transparent 40%, rgba(124,58,237,.35) 60%, rgba(236,72,153,.35) 80%, transparent); animation: swirl 18s linear infinite; }
+      .bg-aurora::after { animation-duration: 28s; animation-direction: reverse; filter: hue-rotate(20deg); opacity: .8; }
+      @keyframes swirl { 0%{transform: rotate(0deg)} 100%{transform: rotate(360deg)} }
+      .bg-grid {
+        background-image:
+          radial-gradient(circle at 50% -20%, rgba(79,70,229,.25), transparent 55%),
+          radial-gradient(1200px 600px at 0% 100%, rgba(236,72,153,.12), transparent 60%),
+          linear-gradient(to right, var(--grid) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+        background-size: auto, auto, 28px 28px, 28px 28px;
+        background-position: center, center, center, center;
+        mask-image: radial-gradient(1200px 800px at 50% 60%, black 60%, transparent 100%);
+      }
+      .bg-noise { opacity: .05; }
+      .bg-noise::before { content: ""; position: absolute; inset: 0; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .35 0"/></filter><rect width="100%" height="100%" filter="url(%23n)"/></svg>'); background-size: 200px 200px; mix-blend-mode: overlay; animation: noiseShift 1.5s steps(4) infinite; }
+      @keyframes noiseShift { 50% { transform: translateY(-10px) } }
+      .glass { backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%); background: var(--glass); border: 1px solid var(--glass-brd); }
+      .glass:hover { border-color: rgba(255,255,255,.12); }
+      .spotlight { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+      /* ====== COLORFUL, COLLAPSIBLE SIDEBAR (same as Home) ====== */
+      .nav-rail { --rail-w: 14rem; }
+      .nav-rail .rail { width: var(--rail-w); transition: width .25s ease; }
+      .nav-rail.folded { --rail-w: 4rem; }
+
+      /* content padding syncs with sidebar width */
+      header.pl-rail, main.pl-rail, footer.pl-rail { padding-left: var(--rail-pad); transition: padding .25s ease; }
+
+      .nav-item{
+        width:100%; display:flex; align-items:center; gap:12px;
+        padding:10px 14px; border-radius:14px; margin:0 8px; color:#fff;
+        transition: background .2s ease, transform .08s ease, color .2s ease, box-shadow .2s ease;
+      }
+      .nav-label{ opacity:1; transform:translateX(0); white-space:nowrap; transition: transform .2s ease, opacity .2s ease; font-size:12px; }
+
+      /* Fold/expand behavior (labels only) */
+      .nav-rail.folded .nav-label{ max-width:0; opacity:0; transform:translateX(-6px); overflow:hidden; }
+      .nav-rail.folded .nav-item{ gap:0; justify-content:center; padding-left:8px; padding-right:8px; margin:0 4px; }
+
+      /* Icon coloring + bubble */
+      .nav-item i{
+        width:1.5rem; height:1.5rem; color: var(--accent, #60a5fa);
+        filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent), transparent 65%));
+        transition: transform .2s ease, filter .2s ease, color .2s ease;
+      }
+      .nav-item:hover i{ transform: scale(1.05) rotate(3deg); }
+      .nav-bubble{
+        position:relative; display:grid; place-items:center; width:36px; height:36px; border-radius:12px;
+        background: radial-gradient(120% 120% at 20% 20%, color-mix(in srgb, var(--accent), white 15%), color-mix(in srgb, var(--accent), black 35%));
+        box-shadow: 0 8px 24px color-mix(in srgb, var(--accent), transparent 75%);
+      }
+      .nav-item:hover .nav-bubble{ box-shadow: 0 10px 30px color-mix(in srgb, var(--accent), transparent 60%); }
+
+      .nav-item:hover{ background: rgba(255,255,255,.06); }
+      .nav-item:active{ transform: translateY(1px); }
+      .nav-item.is-active{
+        background: linear-gradient(90deg, color-mix(in srgb, var(--accent), transparent 85%), rgba(124,58,237,.10));
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+      }
+
+      .rail-active{
+        position:absolute; left:0; width:4px; height:36px; border-top-right-radius:9999px; border-bottom-right-radius:9999px;
+        background: linear-gradient(180deg, var(--accent, #3b82f6), #ec4899);
+        box-shadow: 0 0 18px color-mix(in srgb, var(--accent), transparent 45%);
+        top:72px; opacity:1; transition: top .25s ease, height .2s ease, opacity .2s ease;
+      }
+      .nav-rail.folded .rail-active{ opacity:.7; width:3px; }
+
+      /* Toggle button */
+      .rail-toggle{
+        position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+        width:36px; height:36px; border-radius:12px; display:grid; place-items:center; cursor:pointer;
+        background: linear-gradient(135deg, #3b82f6, #7c3aed, #ec4899); background-size:200% 200%;
+        animation: cue-gradient 6s ease infinite; box-shadow:0 0 16px rgba(124,58,237,.35); border:1px solid rgba(255,255,255,.08);
+      }
+      .rail-toggle:hover{ box-shadow:0 0 22px rgba(236,72,153,.55); }
+      @keyframes cue-gradient{ 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+
+      /* ===== NEW: Local moving background under title + buttons ===== */
+      .lb-hero { position: relative; padding-top: 10px; padding-bottom: 14px; }
+      .lb-hero-bg {
+        position: absolute; inset: 0; height: 240px; pointer-events: none; z-index: 0;
+        filter: blur(28px) saturate(120%); opacity: .85; mix-blend-mode: screen;
+        -webkit-mask-image: radial-gradient(1200px 400px at 50% 10%, #000 60%, transparent 100%);
+                mask-image: radial-gradient(1200px 400px at 50% 10%, #000 60%, transparent 100%);
+      }
+      .lb-hero-bg::before, .lb-hero-bg::after{
+        content:""; position:absolute; inset:-20% -20%;
+        background: conic-gradient(from 120deg at 30% 30%,
+            rgba(239,1914,.35), transparent 40%,
+            rgba(192,192,192,.35) 60%,
+            rgba(205,127,50,.35) 80%, transparent);
+        animation: lb-sheen 22s linear infinite;
+      }
+      .lb-hero-bg::after{ filter: hue-rotate(25deg); opacity:.8; animation-duration: 34s; animation-direction: reverse; }
+      @keyframes lb-sheen { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+
+      /* ===== NEW: Screenshot-style Top-3 podium cards ===== */
+      .podium{
+        position:relative; border-radius:22px; padding:22px; background: rgba(15,18,25,.55);
+        border:1px solid rgba(255,255,255,.08); box-shadow:0 24px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+        overflow:hidden;
+      }
+      .podium::before{
+        content:""; position:absolute; inset:0; pointer-events:none;
+        background:
+          radial-gradient(220px 120px at 15% 10%, color-mix(in srgb, var(--tone,#22c55e), transparent 85%), transparent 70%),
+          radial-gradient(220px 120px at 85% 90%, color-mix(in srgb, var(--tone,#22c55e), transparent 85%), transparent 70%);
+        mix-blend-mode: screen; opacity:.8;
+      }
+      .podium::after{
+        content:""; position:absolute; inset:0; border-radius:inherit; padding:1px;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--tone,#22c55e), transparent 20%), rgba(255,255,255,.05));
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor; mask-composite: exclude; border-radius:inherit;
+      }
+      .podium-1{ --tone:#EFBF04; height:240px; }
+      .podium-2{ --tone:#C0C0C0; height:200px; }
+      .podium-3{ --tone:#CD7F32; height:180px; }
+
+      .rank{ font-size:44px; font-weight:800; line-height:1; color: color-mix(in srgb, var(--tone), white 10%); text-shadow:0 0 18px color-mix(in srgb, var(--tone), transparent 70%); }
+      .name{ font-weight:600; }
+      .pill{ position:absolute; top:10px; left:14px; padding:4px 10px; border-radius:9999px; font-size:12px; color:#cfd7ff; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); }
+      .pill.right{ left:auto; right:14px; }
+      .meta{ text-align:right; margin-left:auto; color:#dfe6ff; }
+      .meta .lab{ font-size:12px; color:#a9b3d0; }
+      .meta .val{ font-weight:700; }
+
+      /* Colorful prize chip + playful sticker gift */
+      .prize-chip{
+        display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:14px;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--tone), transparent 70%), rgba(255,255,255,.06));
+        border:1px solid color-mix(in srgb, var(--tone), transparent 50%);
+        box-shadow:0 8px 26px color-mix(in srgb, var(--tone), transparent 75%);
+        font-weight:700; color: color-mix(in srgb, var(--tone), white 18%);
+      }
+      .sticker{
+        width:22px; height:22px; border-radius:8px; display:grid; place-items:center; transform: rotate(-6deg);
+        background: radial-gradient(120% 120% at 30% 25%, color-mix(in srgb, var(--tone), white 18%), color-mix(in srgb, var(--tone), black 28%));
+        box-shadow: 0 3px 10px color-mix(in srgb, var(--tone), transparent 70%), inset 0 1px 0 rgba(255,255,255,.25);
+        border:1px solid rgba(255,255,255,.18);
+      }
+      .sticker svg{ width:14px; height:14px; fill:white; }
+
+      /* Podium + extras (kept) */
+      .podium-col { position: relative; }
+      .podium-step { position: relative; border-radius: 18px; }
+      .flip { font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+
+      /* Nice scrollbars */
+      ::-webkit-scrollbar{ width:10px; height:10px }
+      ::-webkit-scrollbar-thumb{ background: linear-gradient(180deg, #3b82f6, #7c3aed); border-radius: 9999px }
+      ::-webkit-scrollbar-track{ background: rgba(255,255,255,0.06) }
+
+      .gift {
+  --size: 22px;                    /* default size */
+  width: var(--size);
+  height: var(--size);
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background:
+    radial-gradient(120% 120% at 30% 25%,
+      color-mix(in srgb, var(--gift-a), white 18%),
+      color-mix(in srgb, var(--gift-a), black 28%));
+  box-shadow:
+    0 3px 10px color-mix(in srgb, var(--gift-a), transparent 70%),
+    inset 0 1px 0 rgba(255,255,255,.35);
+  border: 1px solid rgba(255,255,255,.25);
+  transform: rotate(-6deg);
+  transition: transform .15s ease, box-shadow .2s ease;
+}
+.gift:hover { transform: rotate(-3deg) translateY(-1px); }
+
+.gift-svg {
+  width: calc(var(--size) * 0.72);
+  height: calc(var(--size) * 0.72);
+  display: block;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,.35));
+}
+
+/* thick comic stroke */
+.gift-svg [stroke]{
+  stroke: var(--gift-stroke);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* gradient fill used by box & ribbon */
+.gift-svg .fill {
+  fill: url(#gift-grad);
+}
+
+/* sizes */
+.gift--sm { --size: 18px; border-radius: 6px; }
+.gift--lg { --size: 26px; }
+
+/* subtle “wobble” on winning chips */
+.prize-chip .gift { animation: wobble 2.4s ease-in-out infinite both; }
+@keyframes wobble {
+  0%, 100% { transform: rotate(-6deg) translateY(0); }
+  50%      { transform: rotate(-3deg) translateY(-1.5px); }
+}
+
+/* Use same gift in rows: remove their gray chip bg if you want stronger color */
+.row-gift {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 10px; border-radius:14px; background: rgba(255,255,255,.08);
+}
+    </style>
+  </head>
+
+  <body class="bg-[radial-gradient(2000px_800px_at_50%_120%,#070910,transparent)] text-white font-sans antialiased">
+    <!-- Layered dark background stack -->
+    <div class="bg-stack"><div class="bg-aurora"></div><div class="bg-grid"></div><div class="bg-noise"></div></div>
+    <canvas id="spotlight" class="spotlight"></canvas>
+
+    <!-- Sidebar (same colorful rail) -->
+    <aside class="nav-rail fixed left-0 top-0 h-full z-20">
+      <div class="rail glass h-full flex flex-col items-center pt-6 gap-2 overflow-hidden relative">
+        <span class="rail-active pointer-events-none"></span>
+
+        <a href="/" class="nav-item" aria-label="Home" style="--accent:#60A5FA">
+          <span class="nav-bubble"><i data-lucide="home"></i></span>
+          <span class="nav-label">Home</span>
+        </a>
+        <a class="nav-item is-active" aria-label="Leaderboards" style="--accent:#F59E0B">
+          <span class="nav-bubble"><i data-lucide="trophy"></i></span>
+          <span class="nav-label">Leaderboards</span>
+        </a>
+        <a href="/bonuses" class="nav-item" aria-label="Bonuses" style="--accent:#EC4899">
+          <span class="nav-bubble"><i data-lucide="gift"></i></span>
+          <span class="nav-label">Bonuses</span>
+        </a>
+        <a href="/rewards" class="nav-item" aria-label="Rewards" style="--accent:#FBBF24">
+          <span class="nav-bubble"><i data-lucide="coins"></i></span>
+          <span class="nav-label">Rewards</span>
+        </a>
+        <a href="/events" class="nav-item" aria-label="Events" style="--accent:#8B5CF6">
+          <span class="nav-bubble"><i data-lucide="calendar"></i></span>
+          <span class="nav-label">Events</span>
+        </a>
+        <a href="/content" class="nav-item" aria-label="Content" style="--accent:#22D3EE">
+          <span class="nav-bubble"><i data-lucide="video"></i></span>
+          <span class="nav-label">Content</span>
+        </a>
+
+        <!-- collapse/expand toggle -->
+        <button id="railToggle" class="rail-toggle" title="Collapse/Expand">
+          <i data-lucide="chevrons-left" class="w-4 h-4 text-white"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Top bar -->
+    <header class="pl-rail relative z-30">
+      <div class="max-w-7xl mx-auto flex items-center justify-between p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-28 h-28 rounded-2xl grid place-items-center overflow-hidden">
+            <img src="word.png" alt="TxPlays Logo" class="w-30 h-30 object-contain">
+          </div>
+        </div>
+        <a href="#discord-login" class="magnetic group relative inline-flex items-center gap-2 rounded-xl px-8 py-3 text-sm font-medium bg-discord hover:bg-discordDark transition-colors">
+          <span>Login</span>
+          <span class="absolute -inset-px rounded-xl ring-1 ring-white/10"></span>
+        </a>
+      </div>
+    </header>
+
+    <main class="pl-rail relative z-10">
+      <section class="relative pt-10 pb-14">
+        <div class="max-w-7xl mx-auto px-6">
+          <!-- Local moving background + header -->
+          <div class="lb-hero text-center relative">
+           
+
+            <h1 class="relative z-10 text-4xl sm:text-6xl font-extrabold tracking-tight">
+              <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-brand via-violet to-pink-brand">Leaderboard</span>
+            </h1>
+            <p class="relative z-10 mt-3 text-white/70">See where you stand among the top players. Compete for amazing prizes every week.</p>
+
+            <!-- timeframe -->
+            <div class="relative z-10 mt-6 inline-flex gap-2 glass rounded-2xl p-1">
+              <button data-range="weekly" class="range-btn px-4 py-2 rounded-xl text-sm font-medium bg-white/10">Current</button>
+              <button data-range="monthly" class="range-btn px-4 py-2 rounded-xl text-sm font-medium">Previous</button>
+            </div>
+          
+
+          <!-- Podium (Top 3) — screenshot style -->
+          <div class="mt-10 grid md:grid-cols-3 gap-6 items-end">
+            <!-- 2nd -->
+            <div class="podium podium-2">
+              <span class="pill">Runner-up</span>
+              <span class="pill right"><i data-lucide="medal" class="w-4 h-4"></i> 2nd</span>
+
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <br>
+                  <br>  
+                  <div class="rank">#2</div>
+                  <div class="name" id="p2-name">—</div>
+                </div>
+                <div class="meta">
+                  <br>
+                  <br>
+                  <div class="lab">Wagered</div>
+                  <div class="val" id="p2-wager">$0</div>
+                  <div class="lab mt-1">Prize</div>
+                  <div class="prize-chip" id="p2-prize-chip">
+                    <span class="gift" aria-hidden="true">
+  <svg viewBox="0 0 24 24" class="gift-svg">
+    <defs>
+      <linearGradient id="gift-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0"  stop-color="var(--gift-a)"/>
+        <stop offset="1"  stop-color="var(--gift-b)"/>
+      </linearGradient>
+    </defs>
+    <!-- lid -->
+    <rect class="fill" x="3.5" y="8" width="17" height="4" rx="1.2" stroke="var(--gift-stroke)"/>
+    <!-- box -->
+    <rect class="fill" x="4.5" y="12" width="15" height="8.5" rx="1.6" stroke="var(--gift-stroke)"/>
+    <!-- ribbon vertical -->
+    <rect x="11" y="8" width="2" height="12.5" rx="1" fill="white" opacity=".9" stroke="var(--gift-stroke)"/>
+    <!-- bow loops -->
+    <path d="M12 8
+             c-1.6-3 -4.2-3.6 -5.2-2.1
+             c-.9 1.4 .6 2.8 2.9 3.4
+             M12 8
+             c1.6-3 4.2-3.6 5.2-2.1
+             c.9 1.4 -.6 2.8 -2.9 3.4"
+          fill="none" stroke="var(--gift-stroke)"/>
+    <!-- bow center -->
+    <circle cx="12" cy="9" r="1.2" class="fill" stroke="var(--gift-stroke)"/>
+  </svg>
+</span>
+                    <span id="p2-prize">$0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 1st -->
+            <div class="podium podium-1">
+              <span class="pill">Champion</span>
+              <span class="pill right"><i data-lucide="crown" class="w-4 h-4"></i></span>
+
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <br>
+                  <br> 
+                  <div class="rank">#1</div>
+                  <div class="name" id="p1-name">—</div>
+                </div>
+                <div class="meta">
+                  <br>
+                  <br> 
+                  <div class="lab">Wagered</div>
+                  <div class="val" id="p1-wager">$0</div>
+                  <br>
+                  <div class="lab mt-1">Prize</div>
+                  <div class="prize-chip" id="p1-prize-chip">
+                   <span class="gift" aria-hidden="true">
+  <svg viewBox="0 0 24 24" class="gift-svg">
+    <defs>
+      <linearGradient id="gift-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0"  stop-color="var(--gift-a)"/>
+        <stop offset="1"  stop-color="var(--gift-b)"/>
+      </linearGradient>
+    </defs>
+    <!-- lid -->
+    <rect class="fill" x="3.5" y="8" width="17" height="4" rx="1.2" stroke="var(--gift-stroke)"/>
+    <!-- box -->
+    <rect class="fill" x="4.5" y="12" width="15" height="8.5" rx="1.6" stroke="var(--gift-stroke)"/>
+    <!-- ribbon vertical -->
+    <rect x="11" y="8" width="2" height="12.5" rx="1" fill="white" opacity=".9" stroke="var(--gift-stroke)"/>
+    <!-- bow loops -->
+    <path d="M12 8
+             c-1.6-3 -4.2-3.6 -5.2-2.1
+             c-.9 1.4 .6 2.8 2.9 3.4
+             M12 8
+             c1.6-3 4.2-3.6 5.2-2.1
+             c.9 1.4 -.6 2.8 -2.9 3.4"
+          fill="none" stroke="var(--gift-stroke)"/>
+    <!-- bow center -->
+    <circle cx="12" cy="9" r="1.2" class="fill" stroke="var(--gift-stroke)"/>
+  </svg>
+</span>
+                    <span id="p1-prize">$0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3rd -->
+            <div class="podium podium-3">
+              <span class="pill">Third</span>
+              <span class="pill right"><i data-lucide="medal" class="w-4 h-4"></i> 3rd</span>
+
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <br>
+                  <br> 
+                  <div class="rank">#3</div>
+                  <div class="name" id="p3-name">—</div>
+                </div>
+                <div class="meta">
+                  <br>
+                  <br> 
+                  <div class="lab">Wagered</div>
+                  <div class="val" id="p3-wager">$0</div>
+                  <div class="lab mt-1">Prize</div>
+                  <div class="prize-chip" id="p3-prize-chip">
+                    <span class="gift" aria-hidden="true">
+  <svg viewBox="0 0 24 24" class="gift-svg">
+    <defs>
+      <linearGradient id="gift-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0"  stop-color="var(--gift-a)"/>
+        <stop offset="1"  stop-color="var(--gift-b)"/>
+      </linearGradient>
+    </defs>
+    <!-- lid -->
+    <rect class="fill" x="3.5" y="8" width="17" height="4" rx="1.2" stroke="var(--gift-stroke)"/>
+    <!-- box -->
+    <rect class="fill" x="4.5" y="12" width="15" height="8.5" rx="1.6" stroke="var(--gift-stroke)"/>
+    <!-- ribbon vertical -->
+    <rect x="11" y="8" width="2" height="12.5" rx="1" fill="white" opacity=".9" stroke="var(--gift-stroke)"/>
+    <!-- bow loops -->
+    <path d="M12 8
+             c-1.6-3 -4.2-3.6 -5.2-2.1
+             c-.9 1.4 .6 2.8 2.9 3.4
+             M12 8
+             c1.6-3 4.2-3.6 5.2-2.1
+             c.9 1.4 -.6 2.8 -2.9 3.4"
+          fill="none" stroke="var(--gift-stroke)"/>
+    <!-- bow center -->
+    <circle cx="12" cy="9" r="1.2" class="fill" stroke="var(--gift-stroke)"/>
+  </svg>
+</span>
+                    <span id="p3-prize">$0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Countdown -->
+          <div class="mt-10 grid">
+            <div class="glass rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo to-violet grid place-items-center"><i data-lucide="hourglass" class="w-5 h-5"></i></div>
+                <div class="text-sm">
+                  <div class="font-semibold">Time left to Wager</div>
+                  <div class="text-white/60" id="countdown-sub">Resets Monthly 00:00 (CST)</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 text-center">
+                <div class="min-w-[70px]"><div class="text-3xl font-extrabold flip" id="d">0</div><div class="text-xs text-white/60">D</div></div>
+                <div class="text-white/30">:</div>
+                <div class="min-w-[70px]"><div class="text-3xl font-extrabold flip" id="h">00</div><div class="text-xs text-white/60">H</div></div>
+                <div class="text-white/30">:</div>
+                <div class="min-w-[70px]"><div class="text-3xl font-extrabold flip" id="m">00</div><div class="text-xs text-white/60">M</div></div>
+                <div class="text-white/30">:</div>
+                <div class="min-w-[70px]"><div class="text-3xl font-extrabold flip" id="s">00</div><div class="text-xs text-white/60">S</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Places 4–20 -->
+          <div class="mt-10">
+            <div class="flex items-center justify-between">
+              <h2 class="text-2xl font-semibold">#4 – #20</h2>
+              <div class="text-xs text-white/50">Total Wagered Ascending</div>
+            </div>
+            <div class="mt-4 grid gap-3">
+              <div id="rows" class="grid gap-3"></div>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="glass rounded-3xl p-6 text-center">
+              <div class="text-3xl font-bold" id="stat-players">0</div>
+              <div class="text-xs text-white/60 mt-1">Total Players</div>
+            </div>
+            <div class="glass rounded-3xl p-6 text-center">
+              <div class="text-3xl font-bold" id="stat-wagered">$0</div>
+              <div class="text-xs text-white/60 mt-1">Total Wagered</div>
+            </div>
+            <div class="glass rounded-3xl p-6 text-center">
+              <div class="text-3xl font-bold" id="stat-highest">$0</div>
+              <div class="text-xs text-white/60 mt-1">Highest Wager</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="pl-rail border-t border-white/10 relative z-10">
+      <div class="max-w-7xl mx-auto px-6 py-10 grid gap-8 sm:grid-cols-3">
+        <div>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-pink-brand to-blue-brand grid place-items-center"><i data-lucide="zap" class="w-4 h-4"></i></div>
+            <span class="font-semibold">TxPlays</span>
+          </div>
+          <p class="mt-3 text-sm text-white/60">Promos, Leaderboards, Rewards and Events — all in one place.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-6 text-sm">
+          <div class="space-y-2">
+            <div class="text-white/60 uppercase tracking-wide text-xs">Pages</div>
+            <a class="block hover:text-white/90" href="/leaderboards">Leaderboards</a>
+            <a class="block hover:text-white/90" href="/bonuses">Bonuses</a>
+            <a class="block hover:text-white/90" href="/rewards">Rewards</a>
+            <a class="block hover:text-white/90" href="/events">Events</a>
+            <a class="block hover:text-white/90" href="/content">Content</a>
+          </div>
+          <div class="space-y-2">
+            <div class="text-white/60 uppercase tracking-wide text-xs">Company</div>
+            <a class="block hover:text-white/90" href="#">About</a>
+            <a class="block hover:text-white/90" href="#">Contact</a>
+            <a class="block hover:text-white/90" href="#">Terms</a>
+            <a class="block hover:text-white/90" href="#">Privacy</a>
+          </div>
+        </div>
+        <div class="text-sm">
+          <a href="#discord-login" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 mt-2 bg-discord hover:bg-discordDark transition-colors">Login</a>
+          <p class="mt-4 text-xs text-white/50">© <span id="year"></span> TxPlays. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // ==== Icons & year
+      window.addEventListener('DOMContentLoaded', () => {
+        if (window.lucide && window.lucide.createIcons) window.lucide.createIcons({ attrs:{ 'stroke-width': 1.8 }});
+        document.getElementById('year').textContent = new Date().getFullYear();
+
+        // ==== Sidebar toggle (folded/expanded, same as Home)
+        const sidebar = document.querySelector('.nav-rail');
+        const rail = document.querySelector('.nav-rail .rail');
+        const indicator = rail.querySelector('.rail-active');
+        const toggleBtn = document.getElementById('railToggle');
+
+        // Load saved state
+        if (localStorage.getItem('sidebar') === 'folded') {
+          sidebar.classList.add('folded');
+          document.documentElement.style.setProperty('--rail-pad', '4rem');
+          toggleBtn.innerHTML = '<i data-lucide="chevrons-right" class="w-4 h-4 text-white"></i>';
+        } else {
+          sidebar.classList.add('expanded');
+          document.documentElement.style.setProperty('--rail-pad', '14rem');
+          toggleBtn.innerHTML = '<i data-lucide="chevrons-left" class="w-4 h-4 text-white"></i>';
+        }
+        if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+
+        toggleBtn.addEventListener('click', () => {
+          const folded = sidebar.classList.toggle('folded');
+          sidebar.classList.toggle('expanded', !folded);
+          document.documentElement.style.setProperty('--rail-pad', folded ? '4rem' : '14rem');
+          toggleBtn.innerHTML = folded
+            ? '<i data-lucide="chevrons-right" class="w-4 h-4 text-white"></i>'
+            : '<i data-lucide="chevrons-left" class="w-4 h-4 text-white"></i>';
+          if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+          localStorage.setItem('sidebar', folded ? 'folded' : 'expanded');
+        });
+
+        // ==== Active indicator color + position
+        const links = [...rail.querySelectorAll('.nav-item[href], .nav-item:not([href]).is-active')];
+        function setActive(link) {
+          rail.querySelectorAll('.nav-item').forEach(a => a.classList.remove('is-active'));
+          link.classList.add('is-active');
+          const accent = getComputedStyle(link).getPropertyValue('--accent').trim();
+          indicator.style.background = `linear-gradient(180deg, ${accent || '#3b82f6'}, #ec4899)`;
+          indicator.style.boxShadow = `0 0 18px ${accent || 'rgba(59,130,246,.6)'}`;
+          moveIndicator(link);
+        }
+        function moveIndicator(link) {
+          const railRect = rail.getBoundingClientRect();
+          const linkRect = link.getBoundingClientRect();
+          const top = linkRect.top - railRect.top + (linkRect.height - indicator.offsetHeight) / 2;
+          indicator.style.top = Math.max(8, top) + 'px';
+          indicator.style.height = Math.max(28, Math.min(44, linkRect.height - 8)) + 'px';
+        }
+        const activeLink = rail.querySelector('.nav-item.is-active') || rail.querySelector('.nav-item');
+        if (activeLink) setActive(activeLink);
+        links.forEach(l => l.addEventListener('click', () => setActive(l)));
+      });
+
+      // ======= Existing leaderboard logic (unchanged) =======
+      const CURRENCY = 'USD';
+      const TIMEZONE = 'Europe/Vienna';
+      const formatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: CURRENCY, maximumFractionDigits: 0 });
+      const nf = new Intl.NumberFormat(undefined);
+      const q = (sel) => document.querySelector(sel);
+      function formatMoney(v){ return formatter.format(v); }
+
+      function getZonedNow(tz = TIMEZONE){
+        const now = new Date();
+        const tzNow = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+        const diff = now.getTime() - tzNow.getTime();
+        return new Date(now.getTime() + diff);
+      }
+      function nextWeeklyReset(){
+        const d = getZonedNow();
+        const day = d.getDay();
+        const daysUntilMon = (8 - day) % 7;
+        const target = new Date(d);
+        target.setDate(d.getDate() + daysUntilMon);
+        target.setHours(0,0,0,0);
+        return target;
+      }
+      function startCountdown(){
+        const target = nextWeeklyReset();
+        q('#countdown-sub').textContent = 'Resets Monthly ('+TIMEZONE+')';
+        const ids = { d: q('#d'), h: q('#h'), m: q('#m'), s: q('#s') };
+        const tick = () => {
+          const now = getZonedNow();
+          let diff = Math.max(0, target - now);
+          const sec = Math.floor(diff/1000) % 60;
+          const min = Math.floor(diff/60000) % 60;
+          const hr  = Math.floor(diff/3600000) % 24;
+          const day = Math.floor(diff/86400000);
+          ids.d.textContent = day;
+          ids.h.textContent = String(hr).padStart(2,'0');
+          ids.m.textContent = String(min).padStart(2,'0');
+          ids.s.textContent = String(sec).padStart(2,'0');
+        };
+        tick();
+        setInterval(tick, 1000);
+      }
+
+      const DATA_SOURCE = '/api/leaderboard?type=weekly';
+      const MOCK = {
+        prizes: { 1: 1000, 2: 500, 3: 250 },
+        entries: Array.from({length:20}).map((_,i)=>({
+          rank: i+1,
+          username: ['AceHunter','LuckyLuna','SpinWizard','CryptoCobra','NeonNova','RNGod','FeverSpin','StackShark','HighRollHer','TiltProof','Jackspot','MegaMidas','StreakSeek','VioletVibes','DiceDyno','BetBender','Slotsy','VaultViper','GridGale','PinkPhantom'][i],
+          total_wagered: Math.round((20-i) * 2500 + (Math.random()*5000)),
+          prize: i<3 ? [1000,500,250][i] : Math.max(0, Math.round(100 - i*2))
+        })),
+        stats: { total_players: 5123, total_wagered: 3456789, highest_wager: 98765 }
+      };
+      async function loadData(){
+        if (window.LEADERBOARD_DATA) return window.LEADERBOARD_DATA;
+        try {
+          const res = await fetch(DATA_SOURCE, { headers: { 'Accept':'application/json' }});
+          if (res.ok) return await res.json();
+        } catch(e) { /* ignore */ }
+        return MOCK;
+      }
+      function setPodium(top3){
+        const [a,b,c] = top3;
+        q('#p1-name').textContent = a?.username ?? '—';
+        q('#p1-wager').textContent = formatMoney(a?.total_wagered||0) + ' ';
+        q('#p1-prize').textContent = formatMoney(a?.prize||0);
+
+        q('#p2-name').textContent = b?.username ?? '—';
+        q('#p2-wager').textContent = formatMoney(b?.total_wagered||0) + '';
+        q('#p2-prize').textContent = formatMoney(b?.prize||0);
+
+        q('#p3-name').textContent = c?.username ?? '—';
+        q('#p3-wager').textContent = formatMoney(c?.total_wagered||0) + '';
+        q('#p3-prize').textContent = formatMoney(c?.prize||0);
+
+        /* optional: set chip tones explicitly (kept simple) */
+
+        document.getElementById('p1-prize-chip')?.style.setProperty('--tone', '#EFBF04');
+        document.getElementById('p2-prize-chip')?.style.setProperty('--tone', '#C0C0C0');
+        document.getElementById('p3-prize-chip')?.style.setProperty('--tone', '#CD7F32');
+      }
+      function renderRows(entries){
+        const wrap = q('#rows');
+        wrap.innerHTML = '';
+        entries.slice(3,20).forEach((e)=>{
+          const row = document.createElement('div');
+          row.className = 'glass rounded-2xl p-4 grid grid-cols-[40px,1fr,1fr,120px] gap-3 items-center';
+          row.innerHTML = `
+            <div class="text-white/70 font-semibold">#${e.rank}</div>
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-xl bg-white/10 grid place-items-center"><i data-lucide="user" class="w-4 h-4"></i></div>
+              <div class="truncate">${e.username}</div>
+            </div>
+            <div class="text-white/80">${formatMoney(e.total_wagered)}</div>
+            <div class="text-right"><span class="gift" aria-hidden="true">
+  <svg viewBox="0 0 24 24" class="gift-svg">
+    <defs>
+      <linearGradient id="gift-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0"  stop-color="var(--gift-a)"/>
+        <stop offset="1"  stop-color="var(--gift-b)"/>
+      </linearGradient>
+    </defs>
+    <!-- lid -->
+    <rect class="fill" x="3.5" y="8" width="17" height="4" rx="1.2" stroke="var(--gift-stroke)"/>
+    <!-- box -->
+    <rect class="fill" x="4.5" y="12" width="15" height="8.5" rx="1.6" stroke="var(--gift-stroke)"/>
+    <!-- ribbon vertical -->
+    <rect x="11" y="8" width="2" height="12.5" rx="1" fill="white" opacity=".9" stroke="var(--gift-stroke)"/>
+    <!-- bow loops -->
+    <path d="M12 8
+             c-1.6-3 -4.2-3.6 -5.2-2.1
+             c-.9 1.4 .6 2.8 2.9 3.4
+             M12 8
+             c1.6-3 4.2-3.6 5.2-2.1
+             c.9 1.4 -.6 2.8 -2.9 3.4"
+          fill="none" stroke="var(--gift-stroke)"/>
+    <!-- bow center -->
+    <circle cx="12" cy="9" r="1.2" class="fill" stroke="var(--gift-stroke)"/>
+  </svg>
+</span>${formatMoney(e.prize||0)}</span></span></div>
+          `;
+          wrap.appendChild(row);
+        });
+        if (window.lucide && window.lucide.createIcons) window.lucide.createIcons({ attrs:{ 'stroke-width': 1.8 }});
+      }
+      function renderStats(stats){
+        q('#stat-players').textContent = new Intl.NumberFormat().format(stats.total_players||0);
+        q('#stat-wagered').textContent = formatMoney(stats.total_wagered||0);
+        q('#stat-highest').textContent = formatMoney(stats.highest_wager||0);
+      }
+      function renderPrizePool(prizes){ /* kept for parity */ }
+      function setRangeActive(range){
+        document.querySelectorAll('.range-btn').forEach(b=>{
+          if (b.dataset.range === range) b.classList.add('bg-white/10'); else b.classList.remove('bg-white/10');
+        });
+      }
+      async function hydrate(range='weekly'){
+        setRangeActive(range);
+        const data = await loadData();
+        const dataset = data[range] || data;
+        const entries = [...dataset.entries].sort((a,b)=> (b.total_wagered||0)-(a.total_wagered||0)).slice(0,20);
+        const top3 = [entries[0], entries[1], entries[2]];
+        setPodium(top3);
+        renderRows(entries);
+        renderStats(dataset.stats||{});
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        startCountdown();
+        hydrate('weekly');
+        document.querySelectorAll('.range-btn').forEach(btn=> btn.addEventListener('click', ()=> hydrate(btn.dataset.range)));
+      });
+
+      // Spotlight
+      const cvs = document.getElementById('spotlight');
+      const ctx = cvs.getContext('2d');
+      const DPR = Math.max(1, window.devicePixelRatio || 1);
+      function resize() { cvs.width = innerWidth * DPR; cvs.height = innerHeight * DPR; cvs.style.width = innerWidth + 'px'; cvs.style.height = innerHeight + 'px'; }
+      resize(); addEventListener('resize', resize);
+      let mx = innerWidth/2, my = innerHeight/2;
+      addEventListener('pointermove', (e)=>{ mx = e.clientX; my = e.clientY; });
+      (function frame(){
+        ctx.clearRect(0,0,cvs.width,cvs.height);
+        const r = Math.min(innerWidth, innerHeight) * .25;
+        const g = ctx.createRadialGradient(mx*DPR, my*DPR, 0, mx*DPR, my*DPR, r*DPR);
+        g.addColorStop(0, 'rgba(59,130,246,0.08)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0,0,cvs.width,cvs.height);
+        requestAnimationFrame(frame);
+      })();
+    </script>
+  </body>
+</html>
