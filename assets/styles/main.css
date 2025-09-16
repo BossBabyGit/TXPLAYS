@@ -372,6 +372,15 @@ footer.pl-rail {
     padding-bottom: 4rem;
     padding-bottom: calc(4rem + env(safe-area-inset-bottom));
   }
+
+  .hero-section .hero-sun,
+  .hero-section .hero-fade {
+    display: none;
+  }
+
+  .floaters {
+    display: none;
+  }
 }
 
 @keyframes cue-gradient {
@@ -394,6 +403,13 @@ footer.pl-rail {
   overflow: visible;
 }
 
+.hero-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .hero-sun {
   --sun-size: min(1100px, 92vw);
   position: absolute;
@@ -406,7 +422,7 @@ footer.pl-rail {
   background-image: var(--hero-img, url('../images/background.png'));
   background-size: cover;
   background-position: center;
-  z-index: 10;
+  z-index: 0;
   opacity: 0.9;
   filter: saturate(110%);
   -webkit-mask-image: radial-gradient(closest-side, #000 78%, transparent 100%);
