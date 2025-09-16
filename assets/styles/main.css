@@ -291,6 +291,89 @@ footer.pl-rail {
   box-shadow: 0 0 22px rgba(236, 72, 153, 0.55);
 }
 
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 5.5rem;
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  .nav-rail.fixed {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+    width: 100%;
+    --rail-w: 100%;
+    padding: 0 1rem;
+    padding-bottom: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  .nav-rail .rail {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 0.5rem 0.85rem;
+    padding-bottom: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    border-radius: 1.25rem 1.25rem 0 0;
+    gap: 0;
+  }
+
+  .nav-rail .rail-active {
+    display: none;
+  }
+
+  .nav-rail .rail-toggle {
+    display: none;
+  }
+
+  .nav-rail .nav-item,
+  .nav-rail.collapsed .nav-item {
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0.5rem 0.25rem;
+    border-radius: 16px;
+  }
+
+  .nav-rail .nav-bubble {
+    margin-right: 0;
+  }
+
+  .nav-rail .nav-item .nav-label,
+  .nav-rail.collapsed .nav-item .nav-label {
+    max-width: none;
+    opacity: 1;
+    transform: none;
+    margin-left: 0;
+    font-size: 0.65rem;
+  }
+
+  header.pl-rail,
+  main.pl-rail,
+  footer.pl-rail {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  main.pl-rail {
+    padding-bottom: 5rem;
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+
+  footer.pl-rail {
+    padding-bottom: 4rem;
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+}
+
 @keyframes cue-gradient {
   0% {
     background-position: 0% 50%;
@@ -1247,8 +1330,8 @@ footer.pl-rail {
 }
 
 /* ===== Utility ===== */
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   :root {
-    --rail-pad: 4rem;
+    --rail-pad: 1.5rem;
   }
 }

@@ -47,6 +47,7 @@ window.tailwind.config = {
     const page = document.body?.dataset?.page || "";
     refreshIcons();
     updateYear();
+    normalizeHeroBackgrounds();
 
     const nav = initNavRail();
     initMagneticButtons();
@@ -80,6 +81,26 @@ window.tailwind.config = {
     }
   }
 
+  function normalizeHeroBackgrounds() {
+    const heroes = document.querySelectorAll(".hero-sun[data-hero-img]");
+    heroes.forEach((hero) => {
+      const rawPath = hero.getAttribute("data-hero-img");
+      if (!rawPath) {
+        return;
+      }
+      try {
+        const resolved = new URL(rawPath, window.location.href);
+        const value = `url("${resolved.href}")`;
+        hero.style.setProperty("--hero-img", value);
+        hero.style.backgroundImage = value;
+      } catch (error) {
+        const fallback = `url("${rawPath}")`;
+        hero.style.setProperty("--hero-img", fallback);
+        hero.style.backgroundImage = fallback;
+      }
+    });
+  }
+
   function initNavRail() {
     const railWrap = document.querySelector(".nav-rail");
     if (!railWrap) return null;
@@ -97,15 +118,25 @@ window.tailwind.config = {
     }
 
     const mediaQuery = typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 1023px)") : null;
+    const mobileRailQuery =
+      typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 767px)") : null;
     if (!hasStoredPreference && mediaQuery?.matches) {
       collapsed = true;
     }
 
     let userInteracted = hasStoredPreference;
 
+    const applyRailPadding = (isCollapsed) => {
+      if (mobileRailQuery?.matches) {
+        document.documentElement.style.setProperty("--rail-pad", "1.5rem");
+      } else {
+        document.documentElement.style.setProperty("--rail-pad", isCollapsed ? "4rem" : "14rem");
+      }
+    };
+
     const setCollapsed = (isCollapsed, { persist = true } = {}) => {
       railWrap.classList.toggle("collapsed", isCollapsed);
-      document.documentElement.style.setProperty("--rail-pad", isCollapsed ? "4rem" : "14rem");
+      applyRailPadding(isCollapsed);
       if (toggleBtn) {
         toggleBtn.innerHTML = isCollapsed
           ? '<i data-lucide="chevrons-right" class="w-4 h-4 text-white"></i>'
@@ -132,6 +163,17 @@ window.tailwind.config = {
         mediaQuery.addEventListener("change", handleMediaChange);
       } else if (typeof mediaQuery.addListener === "function") {
         mediaQuery.addListener(handleMediaChange);
+      }
+    }
+
+    if (mobileRailQuery) {
+      const handleMobileLayoutChange = () => {
+        applyRailPadding(railWrap.classList.contains("collapsed"));
+      };
+      if (typeof mobileRailQuery.addEventListener === "function") {
+        mobileRailQuery.addEventListener("change", handleMobileLayoutChange);
+      } else if (typeof mobileRailQuery.addListener === "function") {
+        mobileRailQuery.addListener(handleMobileLayoutChange);
       }
     }
 
