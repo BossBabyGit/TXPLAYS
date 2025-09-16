@@ -88,13 +88,22 @@ window.tailwind.config = {
     const toggleBtn = document.getElementById("railToggle");
     const navItems = [...rail.querySelectorAll(".nav-item")];
 
+    const stored = localStorage.getItem(RAIL_KEY);
     const oldValue = localStorage.getItem(OLD_RAIL_KEY);
-    let collapsed = localStorage.getItem(RAIL_KEY) === "1";
+    const hasStoredPreference = stored !== null || oldValue === "folded";
+    let collapsed = stored === "1";
     if (!collapsed && oldValue === "folded") {
       collapsed = true;
     }
 
-    const setCollapsed = (isCollapsed) => {
+    const mediaQuery = typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 1023px)") : null;
+    if (!hasStoredPreference && mediaQuery?.matches) {
+      collapsed = true;
+    }
+
+    let userInteracted = hasStoredPreference;
+
+    const setCollapsed = (isCollapsed, { persist = true } = {}) => {
       railWrap.classList.toggle("collapsed", isCollapsed);
       document.documentElement.style.setProperty("--rail-pad", isCollapsed ? "4rem" : "14rem");
       if (toggleBtn) {
@@ -103,16 +112,35 @@ window.tailwind.config = {
           : '<i data-lucide="chevrons-left" class="w-4 h-4 text-white"></i>';
         refreshIcons({ nameAttr: "data-lucide" });
       }
-      localStorage.setItem(RAIL_KEY, isCollapsed ? "1" : "0");
+      if (persist) {
+        localStorage.setItem(RAIL_KEY, isCollapsed ? "1" : "0");
+      }
     };
 
-    setCollapsed(collapsed);
+    setCollapsed(collapsed, { persist: hasStoredPreference });
     if (oldValue) {
       localStorage.removeItem(OLD_RAIL_KEY);
     }
 
+    if (!hasStoredPreference && mediaQuery) {
+      const handleMediaChange = (event) => {
+        if (!userInteracted) {
+          setCollapsed(event.matches, { persist: false });
+        }
+      };
+      if (typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", handleMediaChange);
+      } else if (typeof mediaQuery.addListener === "function") {
+        mediaQuery.addListener(handleMediaChange);
+      }
+    }
+
     if (toggleBtn) {
-      toggleBtn.addEventListener("click", () => setCollapsed(!railWrap.classList.contains("collapsed")));
+      toggleBtn.addEventListener("click", () => {
+        const nextState = !railWrap.classList.contains("collapsed");
+        userInteracted = true;
+        setCollapsed(nextState);
+      });
     }
 
     const moveIndicator = (link) => {
