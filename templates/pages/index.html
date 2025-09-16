@@ -1,0 +1,146 @@
+<main id="home" class="pl-rail relative z-10">
+      <section class="hero-section relative min-h-[80vh] grid place-items-center">
+        <div class="hero-sun" style="--hero-img: url('{{ASSET_BASE}}/images/background.png')"></div>
+
+        <!-- HERO CONTENT -->
+        <div class="max-w-6xl mx-auto px-6 text-center relative z-20">
+          <div class="inline-flex items-center justify-center w-48 h-48 rounded-[2rem] overflow-hidden">
+            <img src="{{ASSET_BASE}}/images/crown.png" alt="Your Logo" class="w-300 h-300 object-cover rounded-lg">
+          </div>
+          <h1 class="mt-8 text-5xl sm:text-7xl font-extrabold leading-tight tracking-tight">
+            <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-brand via-violet to-pink-brand">True Rewards</span>
+          </h1>
+          <p class="mt-5 text-white/70 max-w-2xl mx-auto">Welcome to TRUE Rewards designed by a TRUE Player. Leaderboards, Challenges and an Active Community for all things Casino.</p>
+
+          <div class="mt-8 flex items-center justify-center gap-4">
+            <a href="{{ROOT_PATH}}pages/leaderboard.html" class="magnetic rounded-2xl px-6 py-3 font-semibold text-sm bg-gradient-to-br from-pink-brand to-blue-brand hover:drop-shadow-neonPink inline-flex items-center gap-2">
+              <i data-lucide="trophy" class="w-5 h-5"></i> Leaderboards
+            </a>
+            <a href="#events" class="magnetic rounded-2xl px-6 py-3 font-semibold text-sm bg-gradient-to-br from-indigo to-violet hover:drop-shadow-neon inline-flex items-center gap-2">
+              <i data-lucide="calendar-range" class="w-5 h-5"></i> Events
+            </a>
+          </div>
+
+          <!-- Depth-parallax stats strip -->
+          <div class="mt-16 grid place-items-center">
+            <div class="tilt w-full max-w-4xl">
+              <div class="relative grid grid-cols-3 gap-4">
+                <div class="glass rounded-3xl p-6 text-center" style="transform: translateZ(40px)">
+                  <div class="text-3xl font-bold text-white">5,000+</div>
+                  <div class="text-xs text-white/60 mt-1">Community Users</div>
+                </div>
+                <div class="glass rounded-3xl p-6 text-center" style="transform: translateZ(60px)">
+                  <div class="text-3xl font-bold text-white">$50,000+</div>
+                  <div class="text-xs text-white/60 mt-1">Given Away</div>
+                </div>
+                <div class="glass rounded-3xl p-6 text-center" style="transform: translateZ(30px)">
+                  <div class="text-3xl font-bold text-white">100+</div>
+                  <div class="text-xs text-white/60 mt-1">Events Completed</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <a href="#showcase" class="scroll-cue mt-10 inline-grid place-items-center" aria-label="Scroll down">
+            <i data-lucide="chevron-down" class="w-5 h-5"></i>
+          </a>
+        </div>
+
+        <div class="floaters">
+          <div class="floater floater-sm floater-1">
+            <img src="{{ASSET_BASE}}/images/fp.png" alt="" class="sway">
+          </div>
+          <div class="floater floater-md floater-2">
+            <img src="{{ASSET_BASE}}/images/wanted.png" alt="" class="sway">
+          </div>
+          <div class="floater floater-lg floater-3">
+            <img src="{{ASSET_BASE}}/images/sweet.png" alt="" class="sway">
+          </div>
+          <div class="floater floater-sm floater-4">
+            <img src="{{ASSET_BASE}}/images/gates.png" alt="" class="sway">
+          </div>
+        </div>
+      </section>
+
+      <br><br><br>
+
+      <!-- SHOWCASE GRID (unchanged content) -->
+      <section id="showcase" class="relative z-0 pb-20">
+        <div class="max-w-7xl mx-auto px-6">
+          <div class="flex items-end justify-between">
+            <h2 class="text-2xl sm:text-3xl font-semibold">Explore the TRUE Side</h2>
+          </div>
+
+          <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <!-- Leaderboards -->
+            <a id="leaderboards" href="{{ROOT_PATH}}pages/leaderboard.html" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+              <div class="relative flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="trophy" class="w-6 h-6"></i></div>
+                <div>
+                  <h3 class="text-lg font-semibold">Leaderboards</h3>
+                  <p class="text-sm text-white/60">Monthly Wager Leaderboards for HUGE Prizes among the Community</p>
+                </div>
+              </div>
+              <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
+                <img src="{{ASSET_BASE}}/images/leaderboard.png" alt="Leaderboards asset" class="w-full h-full object-cover" />
+              </div>
+            </a>
+
+            <!-- Bonuses -->
+            <a id="bonuses" href="{{ROOT_PATH}}pages/bonuses.html" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+              <div class="relative flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="gift" class="w-6 h-6"></i></div>
+                <div>
+                  <h3 class="text-lg font-semibold">Bonuses</h3>
+                  <p class="text-sm text-white/60">Exclusive Promo Codes, Deposit Bonuses & much more!</p>
+                </div>
+              </div>
+              <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
+                <img src="{{ASSET_BASE}}/images/bonuses.png" alt="Bonuses asset" class="w-full h-full object-cover" />
+              </div>
+            </a>
+
+            <!-- Rewards -->
+            <a id="rewards" href="{{ROOT_PATH}}pages/rewards.html" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+              <div class="relative flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="coins" class="w-6 h-6"></i></div>
+                <div>
+                  <h3 class="text-lg font-semibold">Rewards</h3>
+                  <p class="text-sm text-white/60">Get up to $4,444 in Exclusive Rewards & track your progress</p>
+                </div>
+              </div>
+              <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
+                <img src="{{ASSET_BASE}}/images/rewards.png" alt="Rewards asset" class="w-full h-full object-cover" />
+              </div>
+            </a>
+
+            <!-- Events -->
+            <a id="events" href="/events" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+              <div class="relative flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="calendar" class="w-6 h-6"></i></div>
+                <div>
+                  <h3 class="text-lg font-semibold">Events</h3>
+                  <p class="text-sm text-white/60">Exclusive Events for our Community with Crypto, IRL & other cool Prizes</p>
+                </div>
+              </div>
+              <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
+                <img src="{{ASSET_BASE}}/images/events.png" alt="Events asset" class="w-full h-full object-cover" />
+              </div>
+            </a>
+
+            <!-- Content -->
+            <a id="content" href="{{ROOT_PATH}}pages/content.html" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+              <div class="relative flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="video" class="w-6 h-6"></i></div>
+                <div>
+                  <h3 class="text-lg font-semibold">Content</h3>
+                  <p class="text-sm text-white/60">Find my latest Youtube Uploads to be up to Date</p>
+                </div>
+              </div>
+              <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
+                <img src="{{ASSET_BASE}}/images/content.png" alt="Content asset" class="w-full h-full object-cover" />
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
