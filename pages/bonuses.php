@@ -1,3 +1,26 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../lib/session.php';
+
+$currentUser = getAuthenticatedUser();
+$appSession = sessionPayload($currentUser);
+
+$appConfig = [
+    'loginUrl' => '/discord-login.php',
+    'logoutUrl' => '/logout.php',
+    'sessionUrl' => '/api/session.php'
+];
+
+$encodedConfig = json_encode($appConfig, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+$encodedSession = json_encode($appSession, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+if ($encodedConfig === false) {
+    $encodedConfig = '{}';
+}
+if ($encodedSession === false) {
+    $encodedSession = '{"authenticated":false,"user":null}';
+}
+?>
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
     <head>
@@ -13,12 +36,15 @@
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href="../assets/styles/main.css" />
+    <link rel="stylesheet" href="/assets/styles/main.css" />
 
     <!-- Tailwind (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="../assets/scripts/auth-config.js"></script>
-    <script src="../assets/scripts/main.js"></script>
+    <script>
+      window.__APP_CONFIG__ = <?= $encodedConfig ?>;
+      window.__APP_SESSION__ = <?= $encodedSession ?>;
+    </script>
+    <script src="/assets/scripts/main.js"></script>
 
     <!-- Lucide icons (UMD) -->
     <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -37,11 +63,11 @@
     <aside class="nav-rail collapsed fixed left-0 top-0 h-full z-50">
       <div class="rail glass h-full flex flex-col items-center pt-6 gap-2 overflow-hidden relative">
         <span class="rail-active pointer-events-none"></span>
-        <a href="../index.html#home" class="nav-item" aria-label="Home" style="--accent:#60A5FA">
+        <a href="/index.php#home" class="nav-item" aria-label="Home" style="--accent:#60A5FA">
           <span class="nav-bubble"><i data-lucide="home"></i></span>
           <span class="nav-label">Home</span>
         </a>
-        <a href="leaderboard.html" class="nav-item" aria-label="Leaderboards" style="--accent:#F59E0B">
+        <a href="/pages/leaderboard.php" class="nav-item" aria-label="Leaderboards" style="--accent:#F59E0B">
           <span class="nav-bubble"><i data-lucide="trophy"></i></span>
           <span class="nav-label">Leaderboards</span>
         </a>
@@ -49,7 +75,7 @@
           <span class="nav-bubble"><i data-lucide="gift"></i></span>
           <span class="nav-label">Bonuses</span>
         </a>
-        <a href="rewards.html" class="nav-item" aria-label="Rewards" style="--accent:#FBBF24">
+        <a href="/pages/rewards.php" class="nav-item" aria-label="Rewards" style="--accent:#FBBF24">
           <span class="nav-bubble"><i data-lucide="coins"></i></span>
           <span class="nav-label">Rewards</span>
         </a>
@@ -57,7 +83,7 @@
           <span class="nav-bubble"><i data-lucide="calendar"></i></span>
           <span class="nav-label">Events</span>
         </a>
-        <a href="content.html" class="nav-item" aria-label="Content" style="--accent:#22D3EE">
+        <a href="/pages/content.php" class="nav-item" aria-label="Content" style="--accent:#22D3EE">
           <span class="nav-bubble"><i data-lucide="video"></i></span>
           <span class="nav-label">Content</span>
         </a>
@@ -73,13 +99,13 @@
       <div class="max-w-7xl mx-auto flex items-center justify-between p-4">
         <div class="flex items-center gap-3">
           <div class="w-28 h-28 rounded-2xl grid place-items-center overflow-hidden">
-            <img src="../assets/images/word.png" alt="TxPlays Logo" class="w-30 h-30 object-contain" />
+            <img src="/assets/images/word.png" alt="TxPlays Logo" class="w-30 h-30 object-contain" />
           </div>
         </div>
 
         <!-- Discord-style Login button -->
         <div data-auth-root class="auth-controls relative flex items-center gap-2">
-          <a href="#discord-login" class="magnetic group relative inline-flex items-center gap-2 rounded-xl px-6 py-3 text-lg font-semibold bg-discord hover:bg-discordDark transition-colors">
+          <a href="/discord-login.php" class="magnetic group relative inline-flex items-center gap-2 rounded-xl px-6 py-3 text-lg font-semibold bg-discord hover:bg-discordDark transition-colors">
             <span>Login</span>
             <span class="absolute -inset-px rounded-xl ring-1 ring-white/10"></span>
           </a>
@@ -103,7 +129,7 @@
           <!-- Main bonus card -->
           <div class="mt-10 grid gap-6 items-stretch lg:grid-cols-[380px,1fr]">
           <div class="glass rounded-3xl p-4 flex items-center justify-center shadow-card">
-            <img src="../assets/images/bonus.png" alt="Main Bonus" class="h-full w-full rounded-2xl object-contain" />
+            <img src="/assets/images/bonus.png" alt="Main Bonus" class="h-full w-full rounded-2xl object-contain" />
           </div>
 
           <div class="glass rounded-3xl p-6 sm:p-8 shadow-card">
@@ -203,11 +229,11 @@
         <div class="grid grid-cols-2 gap-6 text-sm">
           <div class="space-y-2">
             <div class="text-white/60 uppercase tracking-wide text-xs">Pages</div>
-            <a class="block hover:text-white/90" href="../pages/leaderboard.html">Leaderboards</a>
-            <a class="block hover:text-white/90" href="../pages/bonuses.html">Bonuses</a>
-            <a class="block hover:text-white/90" href="../pages/rewards.html">Rewards</a>
+            <a class="block hover:text-white/90" href="/pages/leaderboard.php">Leaderboards</a>
+            <a class="block hover:text-white/90" href="/pages/bonuses.php">Bonuses</a>
+            <a class="block hover:text-white/90" href="/pages/rewards.php">Rewards</a>
             <a class="block hover:text-white/90" href="/events">Events</a>
-            <a class="block hover:text-white/90" href="../pages/content.html">Content</a>
+            <a class="block hover:text-white/90" href="/pages/content.php">Content</a>
           </div>
           <div class="space-y-2">
             <div class="text-white/60 uppercase tracking-wide text-xs">Company</div>
@@ -218,7 +244,7 @@
           </div>
         </div>
         <div class="text-sm">
-          <a href="#discord-login" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 mt-2 bg-discord hover:bg-discordDark transition-colors">Login</a>
+          <a href="/discord-login.php" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 mt-2 bg-discord hover:bg-discordDark transition-colors">Login</a>
           <p class="mt-4 text-xs text-white/50">© <span id="year"></span> TxPlays. All rights reserved.</p>
         </div>
       </div>
