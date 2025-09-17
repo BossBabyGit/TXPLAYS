@@ -29,6 +29,39 @@ window.tailwind.config = {
   const RAIL_KEY = "railCollapsed";
   const OLD_RAIL_KEY = "sidebar";
 
+  const DISCORD_SESSION_KEY = "txplays.discord.session";
+  const DISCORD_USER_KEY = "txplays.discord.user";
+  const SHUFFLE_KEY_PREFIX = "txplays.shuffle.";
+  const DISCORD_AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize";
+  const DISCORD_USER_ENDPOINT = "https://discord.com/api/users/@me";
+
+  const storage = {
+    get(key) {
+      if (typeof window === "undefined" || !window.localStorage) return null;
+      try {
+        return window.localStorage.getItem(key);
+      } catch (error) {
+        return null;
+      }
+    },
+    set(key, value) {
+      if (typeof window === "undefined" || !window.localStorage) return;
+      try {
+        window.localStorage.setItem(key, value);
+      } catch (error) {
+        /* ignore persistence errors (private mode, etc.) */
+      }
+    },
+    remove(key) {
+      if (typeof window === "undefined" || !window.localStorage) return;
+      try {
+        window.localStorage.removeItem(key);
+      } catch (error) {
+        /* ignore */
+      }
+    }
+  };
+
   const refreshIcons = (options) => {
     if (window.lucide && typeof window.lucide.createIcons === "function") {
       window.lucide.createIcons(options);
@@ -52,6 +85,7 @@ window.tailwind.config = {
     const nav = initNavRail();
     initMagneticButtons();
     initSpotlight();
+    initDiscordAuth();
 
     switch (page) {
       case "home":
@@ -99,6 +133,595 @@ window.tailwind.config = {
         hero.style.backgroundImage = fallback;
       }
     });
+  }
+
+  async function initDiscordAuth() {
+    const roots = [...document.querySelectorAll("[data-auth-root]")];
+    if (!roots.length) {
+      return;
+    }
+
+    const modal = ensureProfileModal();
+    const config = getDiscordConfig();
+    let currentSession = null;
+    let currentUser = null;
+
+    const login = () => {
+      if (!config) {
+        console.warn(
+          "Discord login is not configured. Set window.__DISCORD_AUTH_CONFIG__ before main.js loads."
+        );
+        return;
+      }
+      const authorizeUrl = buildAuthorizeUrl(config, window.location.href);
+      if (authorizeUrl) {
+        window.location.href = authorizeUrl;
+      }
+    };
+
+    const logout = () => {
+      modal.close();
+      clearStoredAuth();
+      currentSession = null;
+      currentUser = null;
+      renderLoggedOutControls(roots, config, login);
+    };
+
+    const openProfile = () => {
+      if (!currentUser) return;
+      modal.open(currentUser);
+    };
+
+    const applyState = () => {
+      if (currentSession && currentUser) {
+        renderLoggedInControls(roots, currentUser, { onProfile: openProfile, onLogout: logout });
+      } else {
+        renderLoggedOutControls(roots, config, login);
+      }
+    };
+
+    const redirectResult = await handlePotentialOAuthRedirect();
+    if (redirectResult?.session) {
+      currentSession = redirectResult.session;
+    } else {
+      currentSession = loadStoredSession();
+    }
+
+    if (redirectResult?.user) {
+      currentUser = redirectResult.user;
+    } else {
+      currentUser = loadStoredUser();
+    }
+
+    if (redirectResult?.redirectUrl) {
+      applyState();
+      window.location.replace(redirectResult.redirectUrl);
+      return;
+    }
+
+    const ensured = await ensureValidSession(currentSession, currentUser);
+    currentSession = ensured.session;
+    currentUser = ensured.user;
+
+    applyState();
+
+    window.addEventListener("storage", async (event) => {
+      if (event.key === DISCORD_SESSION_KEY || event.key === DISCORD_USER_KEY) {
+        const latest = await ensureValidSession(loadStoredSession(), loadStoredUser());
+        currentSession = latest.session;
+        currentUser = latest.user;
+        applyState();
+      } else if (modal.isOpen() && currentUser && event.key === `${SHUFFLE_KEY_PREFIX}${currentUser.id}`) {
+        modal.syncShuffle(currentUser.id);
+      }
+    });
+  }
+
+  function getDiscordConfig() {
+    const raw = window.__DISCORD_AUTH_CONFIG__ || {};
+    if (!raw.clientId || !raw.redirectUri) {
+      return null;
+    }
+    const clientId = String(raw.clientId).trim();
+    const redirectUri = String(raw.redirectUri).trim();
+    if (!clientId || !redirectUri) {
+      return null;
+    }
+    if (clientId === "YOUR_DISCORD_CLIENT_ID" || redirectUri.includes("your-domain.example")) {
+      return null;
+    }
+    const scopes = Array.isArray(raw.scopes) && raw.scopes.length ? raw.scopes : ["identify"];
+    return {
+      clientId,
+      redirectUri,
+      scopes,
+      prompt: raw.prompt ? String(raw.prompt) : undefined
+    };
+  }
+
+  function buildAuthorizeUrl(config, returnTo) {
+    if (!config) return "";
+    const params = new URLSearchParams({
+      client_id: config.clientId,
+      redirect_uri: config.redirectUri,
+      response_type: "token",
+      scope: config.scopes.join(" ")
+    });
+    if (config.prompt) {
+      params.set("prompt", config.prompt);
+    }
+    if (returnTo) {
+      params.set("state", returnTo);
+    }
+    return `${DISCORD_AUTHORIZE_URL}?${params.toString()}`;
+  }
+
+  function parseOAuthFragment(hash) {
+    if (!hash || hash.length <= 1) {
+      return null;
+    }
+    const fragment = hash.startsWith("#") ? hash.slice(1) : hash;
+    const params = new URLSearchParams(fragment);
+    if (!params.has("access_token")) {
+      return null;
+    }
+    const expiresIn = parseInt(params.get("expires_in") || "0", 10);
+    return {
+      accessToken: params.get("access_token") || "",
+      tokenType: params.get("token_type") || "Bearer",
+      scope: params.get("scope") || "",
+      state: params.get("state") || "",
+      expiresIn: Number.isNaN(expiresIn) ? 0 : expiresIn
+    };
+  }
+
+  function clearOAuthFragment() {
+    if (typeof window === "undefined" || !window.history) return;
+    const { pathname, search } = window.location;
+    const cleanUrl = `${pathname}${search}`;
+    window.history.replaceState(null, document.title, cleanUrl);
+  }
+
+  async function handlePotentialOAuthRedirect() {
+    const fragment = parseOAuthFragment(window.location.hash);
+    if (!fragment) {
+      return null;
+    }
+    clearOAuthFragment();
+    if (!fragment.accessToken) {
+      return null;
+    }
+    const session = {
+      accessToken: fragment.accessToken,
+      tokenType: fragment.tokenType || "Bearer",
+      expiresAt: Date.now() + fragment.expiresIn * 1000
+    };
+    const user = await fetchDiscordUser(session.accessToken);
+    if (!user) {
+      clearStoredAuth();
+      return { session: null, user: null, redirectUrl: null };
+    }
+    session.userId = user.id;
+    storeSession(session);
+    storeUser(user);
+    return { session, user, redirectUrl: resolveReturnUrl(fragment.state) };
+  }
+
+  function resolveReturnUrl(state) {
+    if (!state) return null;
+    const decoded = safeDecode(state);
+    try {
+      const target = new URL(decoded, window.location.origin);
+      if (target.origin !== window.location.origin) {
+        return null;
+      }
+      if (target.href === window.location.href) {
+        return null;
+      }
+      return target.href;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function safeDecode(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch (error) {
+      return value;
+    }
+  }
+
+  function storeSession(session) {
+    storage.set(DISCORD_SESSION_KEY, JSON.stringify(session));
+  }
+
+  function loadStoredSession() {
+    const raw = storage.get(DISCORD_SESSION_KEY);
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      storage.remove(DISCORD_SESSION_KEY);
+      return null;
+    }
+  }
+
+  function storeUser(user) {
+    storage.set(DISCORD_USER_KEY, JSON.stringify(user));
+  }
+
+  function loadStoredUser() {
+    const raw = storage.get(DISCORD_USER_KEY);
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      storage.remove(DISCORD_USER_KEY);
+      return null;
+    }
+  }
+
+  function clearStoredAuth() {
+    storage.remove(DISCORD_SESSION_KEY);
+    storage.remove(DISCORD_USER_KEY);
+  }
+
+  async function ensureValidSession(session, user) {
+    if (!session || !session.accessToken || !session.expiresAt) {
+      return { session: null, user: null };
+    }
+    const expiresAt = Number(session.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      clearStoredAuth();
+      return { session: null, user: null };
+    }
+    if (user && !user.id) {
+      user = null;
+    }
+    if (!user || (session.userId && user.id !== session.userId)) {
+      const fetched = await fetchDiscordUser(session.accessToken);
+      if (!fetched) {
+        clearStoredAuth();
+        return { session: null, user: null };
+      }
+      session.userId = fetched.id;
+      storeSession(session);
+      storeUser(fetched);
+      return { session, user: fetched };
+    }
+    if (!session.userId) {
+      session.userId = user.id;
+      storeSession(session);
+    }
+    return { session, user };
+  }
+
+  async function fetchDiscordUser(accessToken) {
+    if (!accessToken) {
+      return null;
+    }
+    try {
+      const response = await fetch(DISCORD_USER_ENDPOINT, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (!response.ok) {
+        return null;
+      }
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function renderLoggedOutControls(roots, config, onLogin) {
+    roots.forEach((root) => {
+      root.innerHTML = "";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className =
+        "magnetic group relative inline-flex items-center gap-2 rounded-xl px-6 py-3 text-lg font-semibold transition-colors";
+      if (config) {
+        button.className += " bg-discord hover:bg-discordDark";
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          onLogin();
+        });
+      } else {
+        button.className += " bg-white/10 cursor-not-allowed";
+        button.disabled = true;
+        button.title = "Discord login is not configured yet.";
+      }
+      const label = document.createElement("span");
+      label.textContent = "Login";
+      button.appendChild(label);
+      const ring = document.createElement("span");
+      ring.className = "absolute -inset-px rounded-xl ring-1 ring-white/10";
+      ring.setAttribute("aria-hidden", "true");
+      button.appendChild(ring);
+      root.appendChild(button);
+    });
+    initMagneticButtons();
+  }
+
+  function renderLoggedInControls(roots, user, handlers) {
+    roots.forEach((root) => {
+      root.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex items-center gap-2";
+
+      const profileBtn = document.createElement("button");
+      profileBtn.type = "button";
+      profileBtn.className =
+        "magnetic group relative inline-flex items-center gap-3 rounded-xl px-4 py-2 text-sm font-semibold transition-colors bg-white/10 hover:bg-white/20";
+      profileBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        handlers.onProfile();
+      });
+
+      const avatar = document.createElement("span");
+      avatar.className =
+        "h-9 w-9 rounded-full overflow-hidden border border-white/15 bg-black/40 flex items-center justify-center";
+      const avatarImg = document.createElement("img");
+      avatarImg.src = getDiscordAvatar(user, 64);
+      avatarImg.alt = `${formatUserLabel(user)}'s avatar`;
+      avatarImg.className = "h-full w-full object-cover";
+      avatar.appendChild(avatarImg);
+      profileBtn.appendChild(avatar);
+
+      const textWrap = document.createElement("div");
+      textWrap.className = "flex flex-col text-left leading-tight";
+      const title = document.createElement("span");
+      title.className = "text-sm font-semibold";
+      title.textContent = "Profile";
+      const subtitle = document.createElement("span");
+      subtitle.className = "text-xs text-white/60";
+      subtitle.textContent = formatUserLabel(user);
+      textWrap.appendChild(title);
+      textWrap.appendChild(subtitle);
+      profileBtn.appendChild(textWrap);
+
+      const profileRing = document.createElement("span");
+      profileRing.className = "absolute -inset-px rounded-xl ring-1 ring-white/10";
+      profileRing.setAttribute("aria-hidden", "true");
+      profileBtn.appendChild(profileRing);
+
+      wrapper.appendChild(profileBtn);
+
+      const logoutBtn = document.createElement("button");
+      logoutBtn.type = "button";
+      logoutBtn.className =
+        "magnetic relative inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors bg-red-500/90 hover:bg-red-500";
+      logoutBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        handlers.onLogout();
+      });
+      const logoutLabel = document.createElement("span");
+      logoutLabel.textContent = "Logout";
+      logoutBtn.appendChild(logoutLabel);
+      const logoutRing = document.createElement("span");
+      logoutRing.className = "absolute -inset-px rounded-xl ring-1 ring-white/10";
+      logoutRing.setAttribute("aria-hidden", "true");
+      logoutBtn.appendChild(logoutRing);
+
+      wrapper.appendChild(logoutBtn);
+      root.appendChild(wrapper);
+    });
+    initMagneticButtons();
+  }
+
+  function getDiscordAvatar(user, size = 64) {
+    if (!user || !user.id) {
+      return "";
+    }
+    if (user.avatar) {
+      const isAnimated = typeof user.avatar === "string" && user.avatar.startsWith("a_");
+      const extension = isAnimated ? "gif" : "png";
+      return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${extension}?size=${size}`;
+    }
+    let fallbackIndex = 0;
+    if (user.discriminator && user.discriminator !== "0") {
+      const disc = parseInt(user.discriminator, 10);
+      fallbackIndex = Number.isNaN(disc) ? 0 : disc % 5;
+    } else if (user.id) {
+      const lastDigit = parseInt(String(user.id).slice(-1), 10);
+      fallbackIndex = Number.isNaN(lastDigit) ? 0 : lastDigit % 5;
+    }
+    return `https://cdn.discordapp.com/embed/avatars/${fallbackIndex}.png`;
+  }
+
+  function formatUserLabel(user) {
+    if (!user) {
+      return "";
+    }
+    if (user.global_name) {
+      return user.global_name;
+    }
+    if (user.username) {
+      if (user.discriminator && user.discriminator !== "0") {
+        return `${user.username}#${user.discriminator}`;
+      }
+      return user.username;
+    }
+    return "Discord User";
+  }
+
+  function formatUserHandle(user) {
+    if (!user) return "";
+    if (user.username && user.discriminator && user.discriminator !== "0") {
+      return `${user.username}#${user.discriminator}`;
+    }
+    if (user.username) {
+      return `@${user.username}`;
+    }
+    return String(user.id || "");
+  }
+
+  function ensureProfileModal() {
+    let overlay = document.getElementById("profileModalBackdrop");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "profileModalBackdrop";
+      overlay.className = "profile-modal-backdrop";
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML = `
+        <div class="profile-modal glass" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+          <button type="button" class="profile-modal-close" data-profile-close aria-label="Close profile dialog">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <div class="profile-modal-header">
+            <div class="profile-modal-avatar">
+              <img data-profile-avatar-img alt="" />
+            </div>
+            <div class="profile-modal-meta">
+              <p class="profile-modal-overline">Signed in with Discord</p>
+              <h2 id="profileModalTitle" data-profile-name></h2>
+              <p class="profile-modal-username" data-profile-username></p>
+            </div>
+          </div>
+          <div class="profile-modal-body">
+            <div class="profile-modal-row">
+              <span class="profile-modal-label">Discord ID</span>
+              <span class="profile-modal-value" data-profile-id></span>
+            </div>
+            <a class="profile-modal-link" data-profile-link target="_blank" rel="noopener">View on Discord</a>
+            <form class="profile-modal-form" data-profile-form>
+              <label class="profile-modal-label" for="profileShuffleInput">Shuffle username</label>
+              <div class="profile-input-group">
+                <input id="profileShuffleInput" type="text" autocomplete="off" placeholder="Enter your Shuffle username" data-shuffle-input />
+                <button type="submit" data-shuffle-save>Save</button>
+              </div>
+              <p class="profile-status" data-shuffle-status hidden></p>
+            </form>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    const closeBtn = overlay.querySelector("[data-profile-close]");
+    const avatarImg = overlay.querySelector("[data-profile-avatar-img]");
+    const nameEl = overlay.querySelector("[data-profile-name]");
+    const usernameEl = overlay.querySelector("[data-profile-username]");
+    const idEl = overlay.querySelector("[data-profile-id]");
+    const profileLink = overlay.querySelector("[data-profile-link]");
+    const form = overlay.querySelector("[data-profile-form]");
+    const shuffleInput = overlay.querySelector("[data-shuffle-input]");
+    const statusEl = overlay.querySelector("[data-shuffle-status]");
+
+    let activeUserId = null;
+    let statusTimer = null;
+
+    const close = () => {
+      overlay.classList.remove("is-open");
+      overlay.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("modal-open");
+      if (statusTimer) {
+        window.clearTimeout(statusTimer);
+        statusTimer = null;
+      }
+      if (statusEl) {
+        statusEl.hidden = true;
+      }
+    };
+
+    const updateShuffleField = (userId) => {
+      if (!shuffleInput) return;
+      const stored = storage.get(`${SHUFFLE_KEY_PREFIX}${userId}`);
+      shuffleInput.value = stored || "";
+    };
+
+    const showStatus = (message) => {
+      if (!statusEl) return;
+      statusEl.textContent = message;
+      statusEl.hidden = false;
+      statusEl.classList.remove("is-error");
+      if (statusTimer) {
+        window.clearTimeout(statusTimer);
+      }
+      statusTimer = window.setTimeout(() => {
+        statusEl.hidden = true;
+        statusTimer = null;
+      }, 2400);
+    };
+
+    const handleSave = () => {
+      if (!activeUserId || !shuffleInput) return;
+      const value = shuffleInput.value.trim();
+      if (value) {
+        storage.set(`${SHUFFLE_KEY_PREFIX}${activeUserId}`, value);
+        showStatus("Shuffle username saved.");
+      } else {
+        storage.remove(`${SHUFFLE_KEY_PREFIX}${activeUserId}`);
+        showStatus("Shuffle username cleared.");
+      }
+    };
+
+    const open = (user) => {
+      if (!user) return;
+      activeUserId = user.id;
+      if (avatarImg) {
+        const avatarUrl = getDiscordAvatar(user, 128);
+        avatarImg.src = avatarUrl;
+        avatarImg.alt = `${formatUserLabel(user)}'s avatar`;
+      }
+      if (nameEl) {
+        nameEl.textContent = formatUserLabel(user) || "Discord User";
+      }
+      if (usernameEl) {
+        usernameEl.textContent = formatUserHandle(user);
+      }
+      if (idEl) {
+        idEl.textContent = user.id || "";
+      }
+      if (profileLink && user.id) {
+        profileLink.href = `https://discord.com/users/${user.id}`;
+      }
+      updateShuffleField(activeUserId);
+      if (statusEl) {
+        statusEl.hidden = true;
+      }
+      overlay.classList.add("is-open");
+      overlay.setAttribute("aria-hidden", "false");
+      document.body.classList.add("modal-open");
+      window.setTimeout(() => {
+        shuffleInput?.focus({ preventScroll: true });
+      }, 50);
+    };
+
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) {
+        close();
+      }
+    });
+    closeBtn?.addEventListener("click", close);
+    form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      handleSave();
+    });
+    overlay.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && overlay.classList.contains("is-open")) {
+        close();
+      }
+    });
+    shuffleInput?.addEventListener("input", () => {
+      if (statusEl) {
+        statusEl.hidden = true;
+      }
+    });
+
+    return {
+      open,
+      close,
+      isOpen: () => overlay.classList.contains("is-open"),
+      syncShuffle(userId) {
+        if (!activeUserId || activeUserId !== userId) return;
+        updateShuffleField(userId);
+      }
+    };
   }
 
   function initNavRail() {
@@ -217,6 +840,10 @@ window.tailwind.config = {
 
   function initMagneticButtons() {
     document.querySelectorAll(".magnetic").forEach((btn) => {
+      if (btn.dataset.magneticInit === "1") {
+        return;
+      }
+      btn.dataset.magneticInit = "1";
       let rect;
       btn.addEventListener("pointermove", (e) => {
         rect = rect || btn.getBoundingClientRect();
