@@ -1,3 +1,26 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/lib/session.php';
+
+$currentUser = getAuthenticatedUser();
+$appSession = sessionPayload($currentUser);
+
+$appConfig = [
+    'loginUrl' => '/discord-login.php',
+    'logoutUrl' => '/logout.php',
+    'sessionUrl' => '/api/session.php'
+];
+
+$encodedConfig = json_encode($appConfig, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+$encodedSession = json_encode($appSession, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+if ($encodedConfig === false) {
+    $encodedConfig = '{}';
+}
+if ($encodedSession === false) {
+    $encodedSession = '{"authenticated":false,"user":null}';
+}
+?>
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
     <head>
@@ -13,12 +36,15 @@
       rel="stylesheet"
     />
 
-    <link rel="stylesheet" href="assets/styles/main.css" />
+    <link rel="stylesheet" href="/assets/styles/main.css" />
 
     <!-- Tailwind (CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="assets/scripts/auth-config.js"></script>
-    <script src="assets/scripts/main.js"></script>
+    <script>
+      window.__APP_CONFIG__ = <?= $encodedConfig ?>;
+      window.__APP_SESSION__ = <?= $encodedSession ?>;
+    </script>
+    <script src="/assets/scripts/main.js"></script>
 
     <!-- Lucide icons (UMD) -->
     <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -41,15 +67,15 @@
           <span class="nav-bubble"><i data-lucide="home"></i></span>
           <span class="nav-label">Home</span>
         </a>
-        <a href="pages/leaderboard.html" class="nav-item" aria-label="Leaderboards" style="--accent:#F59E0B">
+        <a href="/pages/leaderboard.php" class="nav-item" aria-label="Leaderboards" style="--accent:#F59E0B">
           <span class="nav-bubble"><i data-lucide="trophy"></i></span>
           <span class="nav-label">Leaderboards</span>
         </a>
-        <a href="pages/bonuses.html" class="nav-item" aria-label="Bonuses" style="--accent:#EC4899">
+        <a href="/pages/bonuses.php" class="nav-item" aria-label="Bonuses" style="--accent:#EC4899">
           <span class="nav-bubble"><i data-lucide="gift"></i></span>
           <span class="nav-label">Bonuses</span>
         </a>
-        <a href="pages/rewards.html" class="nav-item" aria-label="Rewards" style="--accent:#FBBF24">
+        <a href="/pages/rewards.php" class="nav-item" aria-label="Rewards" style="--accent:#FBBF24">
           <span class="nav-bubble"><i data-lucide="coins"></i></span>
           <span class="nav-label">Rewards</span>
         </a>
@@ -57,7 +83,7 @@
           <span class="nav-bubble"><i data-lucide="calendar"></i></span>
           <span class="nav-label">Events</span>
         </a>
-        <a href="pages/content.html" class="nav-item" aria-label="Content" style="--accent:#22D3EE">
+        <a href="/pages/content.php" class="nav-item" aria-label="Content" style="--accent:#22D3EE">
           <span class="nav-bubble"><i data-lucide="video"></i></span>
           <span class="nav-label">Content</span>
         </a>
@@ -73,13 +99,13 @@
       <div class="max-w-7xl mx-auto flex items-center justify-between p-4">
         <div class="flex items-center gap-3">
           <div class="w-28 h-28 rounded-2xl grid place-items-center overflow-hidden">
-            <img src="assets/images/word.png" alt="TxPlays Logo" class="w-30 h-30 object-contain" />
+            <img src="/assets/images/word.png" alt="TxPlays Logo" class="w-30 h-30 object-contain" />
           </div>
         </div>
 
         <!-- Discord-style Login button -->
         <div data-auth-root class="auth-controls relative flex items-center gap-2">
-          <a href="#discord-login" class="magnetic group relative inline-flex items-center gap-2 rounded-xl px-6 py-3 text-lg font-semibold bg-discord hover:bg-discordDark transition-colors">
+          <a href="/discord-login.php" class="magnetic group relative inline-flex items-center gap-2 rounded-xl px-6 py-3 text-lg font-semibold bg-discord hover:bg-discordDark transition-colors">
             <span>Login</span>
             <span class="absolute -inset-px rounded-xl ring-1 ring-white/10"></span>
           </a>
@@ -91,14 +117,14 @@
       <section class="hero-section relative min-h-[80vh] grid place-items-center">
         <div
           class="hero-sun"
-          data-hero-img="assets/images/background.png"
-          style="--hero-img: url('assets/images/background.png')"
+          data-hero-img="/assets/images/background.png"
+          style="--hero-img: url('/assets/images/background.png')"
         ></div>
 
         <!-- HERO CONTENT -->
         <div class="max-w-6xl mx-auto px-6 text-center relative z-20">
           <div class="inline-flex items-center justify-center w-48 h-48 rounded-[2rem] overflow-hidden">
-            <img src="assets/images/crown.png" alt="Your Logo" class="w-300 h-300 object-cover rounded-lg">
+            <img src="/assets/images/crown.png" alt="Your Logo" class="w-300 h-300 object-cover rounded-lg">
           </div>
           <h1 class="mt-8 text-5xl sm:text-7xl font-extrabold leading-tight tracking-tight">
             <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-brand via-violet to-pink-brand">True Rewards</span>
@@ -106,7 +132,7 @@
           <p class="mt-5 text-white/70 max-w-2xl mx-auto">Welcome to TRUE Rewards designed by a TRUE Player. Leaderboards, Challenges and an Active Community for all things Casino.</p>
 
           <div class="mt-8 flex items-center justify-center gap-4">
-            <a href="pages/leaderboard.html" class="magnetic rounded-2xl px-6 py-3 font-semibold text-sm bg-gradient-to-br from-pink-brand to-blue-brand hover:drop-shadow-neonPink inline-flex items-center gap-2">
+            <a href="/pages/leaderboard.php" class="magnetic rounded-2xl px-6 py-3 font-semibold text-sm bg-gradient-to-br from-pink-brand to-blue-brand hover:drop-shadow-neonPink inline-flex items-center gap-2">
               <i data-lucide="trophy" class="w-5 h-5"></i> Leaderboards
             </a>
             <a href="#events" class="magnetic rounded-2xl px-6 py-3 font-semibold text-sm bg-gradient-to-br from-indigo to-violet hover:drop-shadow-neon inline-flex items-center gap-2">
@@ -140,16 +166,16 @@
 
         <div class="floaters">
           <div class="floater floater-sm floater-1">
-            <img src="assets/images/fp.png" alt="" class="sway">
+            <img src="/assets/images/fp.png" alt="" class="sway">
           </div>
           <div class="floater floater-md floater-2">
-            <img src="assets/images/wanted.png" alt="" class="sway">
+            <img src="/assets/images/wanted.png" alt="" class="sway">
           </div>
           <div class="floater floater-lg floater-3">
-            <img src="assets/images/sweet.png" alt="" class="sway">
+            <img src="/assets/images/sweet.png" alt="" class="sway">
           </div>
           <div class="floater floater-sm floater-4">
-            <img src="assets/images/gates.png" alt="" class="sway">
+            <img src="/assets/images/gates.png" alt="" class="sway">
           </div>
         </div>
       </section>
@@ -165,7 +191,7 @@
 
           <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <!-- Leaderboards -->
-            <a id="leaderboards" href="pages/leaderboard.html" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+            <a id="leaderboards" href="/pages/leaderboard.php" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
               <div class="relative flex items-center gap-3">
                 <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="trophy" class="w-6 h-6"></i></div>
                 <div>
@@ -174,12 +200,12 @@
                 </div>
               </div>
               <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
-                <img src="assets/images/leaderboard.png" alt="Leaderboards asset" class="w-full h-full object-cover" />
+                <img src="/assets/images/leaderboard.png" alt="Leaderboards asset" class="w-full h-full object-cover" />
               </div>
             </a>
 
             <!-- Bonuses -->
-            <a id="bonuses" href="pages/bonuses.html" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+            <a id="bonuses" href="/pages/bonuses.php" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
               <div class="relative flex items-center gap-3">
                 <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="gift" class="w-6 h-6"></i></div>
                 <div>
@@ -188,12 +214,12 @@
                 </div>
               </div>
               <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
-                <img src="assets/images/bonuses.png" alt="Bonuses asset" class="w-full h-full object-cover" />
+                <img src="/assets/images/bonuses.png" alt="Bonuses asset" class="w-full h-full object-cover" />
               </div>
             </a>
 
             <!-- Rewards -->
-            <a id="rewards" href="pages/rewards.html" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+            <a id="rewards" href="/pages/rewards.php" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
               <div class="relative flex items-center gap-3">
                 <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="coins" class="w-6 h-6"></i></div>
                 <div>
@@ -202,7 +228,7 @@
                 </div>
               </div>
               <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
-                <img src="assets/images/rewards.png" alt="Rewards asset" class="w-full h-full object-cover" />
+                <img src="/assets/images/rewards.png" alt="Rewards asset" class="w-full h-full object-cover" />
               </div>
             </a>
 
@@ -216,12 +242,12 @@
                 </div>
               </div>
               <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
-                <img src="assets/images/events.png" alt="Events asset" class="w-full h-full object-cover" />
+                <img src="/assets/images/events.png" alt="Events asset" class="w-full h-full object-cover" />
               </div>
             </a>
 
             <!-- Content -->
-            <a id="content" href="pages/content.html" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
+            <a id="content" href="/pages/content.php" class="group relative rounded-3xl p-5 glass transition overflow-hidden tilt">
               <div class="relative flex items-center gap-3">
                 <div class="w-12 h-12 rounded-2xl grid place-items-center"><i data-lucide="video" class="w-6 h-6"></i></div>
                 <div>
@@ -230,7 +256,7 @@
                 </div>
               </div>
               <div class="mt-4 relative h-42 rounded-2xl overflow-hidden">
-                <img src="assets/images/content.png" alt="Content asset" class="w-full h-full object-cover" />
+                <img src="/assets/images/content.png" alt="Content asset" class="w-full h-full object-cover" />
               </div>
             </a>
           </div>
@@ -252,11 +278,11 @@
         <div class="grid grid-cols-2 gap-6 text-sm">
           <div class="space-y-2">
             <div class="text-white/60 uppercase tracking-wide text-xs">Pages</div>
-            <a class="block hover:text-white/90" href="pages/leaderboard.html">Leaderboards</a>
-            <a class="block hover:text-white/90" href="pages/bonuses.html">Bonuses</a>
-            <a class="block hover:text-white/90" href="pages/rewards.html">Rewards</a>
+            <a class="block hover:text-white/90" href="/pages/leaderboard.php">Leaderboards</a>
+            <a class="block hover:text-white/90" href="/pages/bonuses.php">Bonuses</a>
+            <a class="block hover:text-white/90" href="/pages/rewards.php">Rewards</a>
             <a class="block hover:text-white/90" href="/events">Events</a>
-            <a class="block hover:text-white/90" href="pages/content.html">Content</a>
+            <a class="block hover:text-white/90" href="/pages/content.php">Content</a>
           </div>
           <div class="space-y-2">
             <div class="text-white/60 uppercase tracking-wide text-xs">Company</div>
@@ -267,7 +293,7 @@
           </div>
         </div>
         <div class="text-sm">
-          <a href="#discord-login" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 mt-2 bg-discord hover:bg-discordDark transition-colors">Login</a>
+          <a href="/discord-login.php" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 mt-2 bg-discord hover:bg-discordDark transition-colors">Login</a>
           <p class="mt-4 text-xs text-white/50">© <span id="year"></span> TxPlays. All rights reserved.</p>
         </div>
       </div>

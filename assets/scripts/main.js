@@ -29,11 +29,9 @@ window.tailwind.config = {
   const RAIL_KEY = "railCollapsed";
   const OLD_RAIL_KEY = "sidebar";
 
-  const DISCORD_SESSION_KEY = "txplays.discord.session";
-  const DISCORD_USER_KEY = "txplays.discord.user";
+  const SESSION_CACHE_KEY = "txplays.session.cache";
+  const SESSION_BROADCAST_KEY = "txplays.session.signal";
   const SHUFFLE_KEY_PREFIX = "txplays.shuffle.";
-  const DISCORD_AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize";
-  const DISCORD_USER_ENDPOINT = "https://discord.com/api/users/@me";
 
   const storage = {
     get(key) {
@@ -142,29 +140,46 @@ window.tailwind.config = {
     }
 
     const modal = ensureProfileModal();
-    const config = getDiscordConfig();
-    let currentSession = null;
-    let currentUser = null;
+    const config = getAppConfig();
+    let currentSession = sanitizeSession(window.__APP_SESSION__);
+    let currentUser = currentSession.user || null;
+    let lastSessionFetch = 0;
 
     const login = () => {
-      if (!config) {
-        console.warn(
-          "Discord login is not configured. Set window.__DISCORD_AUTH_CONFIG__ before main.js loads."
-        );
+      if (!config?.loginUrl) {
+        console.warn("Discord login URL is not configured. Update config.php with valid credentials.");
         return;
       }
-      const authorizeUrl = buildAuthorizeUrl(config, window.location.href);
-      if (authorizeUrl) {
-        window.location.href = authorizeUrl;
+      const target = buildLoginUrl(config.loginUrl, window.location.href);
+      if (target) {
+        window.location.href = target;
       }
     };
 
-    const logout = () => {
+    const logout = async () => {
+      if (!config?.logoutUrl) {
+        console.warn("Logout endpoint is not configured.");
+        return;
+      }
       modal.close();
-      clearStoredAuth();
-      currentSession = null;
-      currentUser = null;
-      renderLoggedOutControls(roots, config, login);
+      try {
+        await fetch(config.logoutUrl, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json"
+          }
+        });
+      } catch (error) {
+        console.warn("Failed to logout from Discord session.", error);
+      } finally {
+        currentSession = { authenticated: false, user: null };
+        currentUser = null;
+        applyState();
+        persistSession(currentSession);
+        broadcastSessionChange();
+      }
     };
 
     const openProfile = () => {
@@ -173,248 +188,217 @@ window.tailwind.config = {
     };
 
     const applyState = () => {
-      if (currentSession && currentUser) {
+      if (currentSession.authenticated && currentUser) {
         renderLoggedInControls(roots, currentUser, { onProfile: openProfile, onLogout: logout });
       } else {
         renderLoggedOutControls(roots, config, login);
       }
     };
 
-    const redirectResult = await handlePotentialOAuthRedirect();
-    if (redirectResult?.session) {
-      currentSession = redirectResult.session;
-    } else {
-      currentSession = loadStoredSession();
-    }
+    const syncFromSession = (nextSession) => {
+      const normalized = sanitizeSession(nextSession);
+      const changed = !sessionsEqual(currentSession, normalized);
+      if (changed) {
+        currentSession = normalized;
+        currentUser = normalized.user || null;
+        applyState();
+        persistSession(normalized);
+      }
+      return changed;
+    };
 
-    if (redirectResult?.user) {
-      currentUser = redirectResult.user;
-    } else {
-      currentUser = loadStoredUser();
-    }
+    const refreshSession = async ({ force = false, broadcast = false } = {}) => {
+      if (!config?.sessionUrl) {
+        return null;
+      }
+      const now = Date.now();
+      if (!force && now - lastSessionFetch < 5000) {
+        return currentSession;
+      }
+      lastSessionFetch = now;
+      const latest = await fetchSession(config.sessionUrl);
+      if (latest) {
+        const changed = syncFromSession(latest);
+        if (changed && broadcast) {
+          broadcastSessionChange();
+        }
+      }
+      return latest;
+    };
 
-    if (redirectResult?.redirectUrl) {
-      applyState();
-      window.location.replace(redirectResult.redirectUrl);
-      return;
+    const cached = loadCachedSession();
+    if (cached && !currentSession.authenticated && cached.authenticated) {
+      currentSession = cached;
+      currentUser = cached.user || null;
     }
-
-    const ensured = await ensureValidSession(currentSession, currentUser);
-    currentSession = ensured.session;
-    currentUser = ensured.user;
 
     applyState();
+    persistSession(currentSession);
+    broadcastSessionChange();
 
-    window.addEventListener("storage", async (event) => {
-      if (event.key === DISCORD_SESSION_KEY || event.key === DISCORD_USER_KEY) {
-        const latest = await ensureValidSession(loadStoredSession(), loadStoredUser());
-        currentSession = latest.session;
-        currentUser = latest.user;
-        applyState();
+    refreshSession({ force: true });
+
+    window.addEventListener("focus", () => {
+      refreshSession({ force: true });
+    });
+
+    window.setInterval(() => {
+      refreshSession({ force: false });
+    }, 120000);
+
+    window.addEventListener("storage", (event) => {
+      if (event.key === SESSION_CACHE_KEY && event.newValue) {
+        const parsed = parseSessionCache(event.newValue);
+        if (parsed) {
+          syncFromSession(parsed);
+        }
+      } else if (event.key === SESSION_BROADCAST_KEY) {
+        refreshSession({ force: true });
       } else if (modal.isOpen() && currentUser && event.key === `${SHUFFLE_KEY_PREFIX}${currentUser.id}`) {
         modal.syncShuffle(currentUser.id);
       }
     });
   }
 
-  function getDiscordConfig() {
-    const raw = window.__DISCORD_AUTH_CONFIG__ || {};
-    if (!raw.clientId || !raw.redirectUri) {
+  function getAppConfig() {
+    const raw = window.__APP_CONFIG__ || {};
+    if (!raw || typeof raw !== "object") {
       return null;
     }
-    const clientId = String(raw.clientId).trim();
-    const redirectUri = String(raw.redirectUri).trim();
-    if (!clientId || !redirectUri) {
-      return null;
+    const config = {};
+    if (raw.loginUrl) {
+      config.loginUrl = String(raw.loginUrl);
     }
-    if (clientId === "YOUR_DISCORD_CLIENT_ID" || redirectUri.includes("your-domain.example")) {
-      return null;
+    if (raw.logoutUrl) {
+      config.logoutUrl = String(raw.logoutUrl);
     }
-    const scopes = Array.isArray(raw.scopes) && raw.scopes.length ? raw.scopes : ["identify"];
+    if (raw.sessionUrl) {
+      config.sessionUrl = String(raw.sessionUrl);
+    }
+    return Object.keys(config).length ? config : null;
+  }
+
+  function sanitizeSession(session) {
+    if (!session || typeof session !== "object") {
+      return { authenticated: false, user: null };
+    }
+    const user = sanitizeUser(session.user);
     return {
-      clientId,
-      redirectUri,
-      scopes,
-      prompt: raw.prompt ? String(raw.prompt) : undefined
+      authenticated: Boolean(session.authenticated) && !!user,
+      user
     };
   }
 
-  function buildAuthorizeUrl(config, returnTo) {
-    if (!config) return "";
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      response_type: "token",
-      scope: config.scopes.join(" ")
-    });
-    if (config.prompt) {
-      params.set("prompt", config.prompt);
-    }
-    if (returnTo) {
-      params.set("state", returnTo);
-    }
-    return `${DISCORD_AUTHORIZE_URL}?${params.toString()}`;
-  }
-
-  function parseOAuthFragment(hash) {
-    if (!hash || hash.length <= 1) {
+  function sanitizeUser(user) {
+    if (!user || typeof user !== "object") {
       return null;
     }
-    const fragment = hash.startsWith("#") ? hash.slice(1) : hash;
-    const params = new URLSearchParams(fragment);
-    if (!params.has("access_token")) {
+    const id = user.id != null ? String(user.id) : null;
+    if (!id) {
       return null;
     }
-    const expiresIn = parseInt(params.get("expires_in") || "0", 10);
     return {
-      accessToken: params.get("access_token") || "",
-      tokenType: params.get("token_type") || "Bearer",
-      scope: params.get("scope") || "",
-      state: params.get("state") || "",
-      expiresIn: Number.isNaN(expiresIn) ? 0 : expiresIn
+      id,
+      username: user.username != null ? String(user.username) : null,
+      discriminator: user.discriminator != null ? String(user.discriminator) : null,
+      global_name: user.global_name != null ? String(user.global_name) : null,
+      avatar: user.avatar != null ? String(user.avatar) : null,
+      email: user.email != null ? String(user.email) : null,
+      locale: user.locale != null ? String(user.locale) : null,
+      mfa_enabled: typeof user.mfa_enabled === "boolean" ? user.mfa_enabled : Boolean(user.mfa_enabled),
+      updated_at: user.updated_at != null ? String(user.updated_at) : null
     };
   }
 
-  function clearOAuthFragment() {
-    if (typeof window === "undefined" || !window.history) return;
-    const { pathname, search } = window.location;
-    const cleanUrl = `${pathname}${search}`;
-    window.history.replaceState(null, document.title, cleanUrl);
+  function sessionsEqual(a, b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (Boolean(a.authenticated) !== Boolean(b.authenticated)) {
+      return false;
+    }
+    const aId = a.user?.id || null;
+    const bId = b.user?.id || null;
+    if (aId !== bId) {
+      return false;
+    }
+    const aUpdated = a.user?.updated_at || null;
+    const bUpdated = b.user?.updated_at || null;
+    return aUpdated === bUpdated;
   }
 
-  async function handlePotentialOAuthRedirect() {
-    const fragment = parseOAuthFragment(window.location.hash);
-    if (!fragment) {
-      return null;
+  function buildLoginUrl(loginUrl, returnTo) {
+    if (!loginUrl) {
+      return "";
     }
-    clearOAuthFragment();
-    if (!fragment.accessToken) {
-      return null;
-    }
-    const session = {
-      accessToken: fragment.accessToken,
-      tokenType: fragment.tokenType || "Bearer",
-      expiresAt: Date.now() + fragment.expiresIn * 1000
-    };
-    const user = await fetchDiscordUser(session.accessToken);
-    if (!user) {
-      clearStoredAuth();
-      return { session: null, user: null, redirectUrl: null };
-    }
-    session.userId = user.id;
-    storeSession(session);
-    storeUser(user);
-    return { session, user, redirectUrl: resolveReturnUrl(fragment.state) };
-  }
-
-  function resolveReturnUrl(state) {
-    if (!state) return null;
-    const decoded = safeDecode(state);
     try {
-      const target = new URL(decoded, window.location.origin);
-      if (target.origin !== window.location.origin) {
-        return null;
+      const target = new URL(loginUrl, window.location.origin);
+      if (returnTo) {
+        target.searchParams.set("return", returnTo);
       }
-      if (target.href === window.location.href) {
-        return null;
-      }
-      return target.href;
+      return target.toString();
     } catch (error) {
-      return null;
+      return loginUrl;
     }
   }
 
-  function safeDecode(value) {
+  async function fetchSession(url) {
     try {
-      return decodeURIComponent(value);
-    } catch (error) {
-      return value;
-    }
-  }
-
-  function storeSession(session) {
-    storage.set(DISCORD_SESSION_KEY, JSON.stringify(session));
-  }
-
-  function loadStoredSession() {
-    const raw = storage.get(DISCORD_SESSION_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      return JSON.parse(raw);
-    } catch (error) {
-      storage.remove(DISCORD_SESSION_KEY);
-      return null;
-    }
-  }
-
-  function storeUser(user) {
-    storage.set(DISCORD_USER_KEY, JSON.stringify(user));
-  }
-
-  function loadStoredUser() {
-    const raw = storage.get(DISCORD_USER_KEY);
-    if (!raw) {
-      return null;
-    }
-    try {
-      return JSON.parse(raw);
-    } catch (error) {
-      storage.remove(DISCORD_USER_KEY);
-      return null;
-    }
-  }
-
-  function clearStoredAuth() {
-    storage.remove(DISCORD_SESSION_KEY);
-    storage.remove(DISCORD_USER_KEY);
-  }
-
-  async function ensureValidSession(session, user) {
-    if (!session || !session.accessToken || !session.expiresAt) {
-      return { session: null, user: null };
-    }
-    const expiresAt = Number(session.expiresAt);
-    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-      clearStoredAuth();
-      return { session: null, user: null };
-    }
-    if (user && !user.id) {
-      user = null;
-    }
-    if (!user || (session.userId && user.id !== session.userId)) {
-      const fetched = await fetchDiscordUser(session.accessToken);
-      if (!fetched) {
-        clearStoredAuth();
-        return { session: null, user: null };
-      }
-      session.userId = fetched.id;
-      storeSession(session);
-      storeUser(fetched);
-      return { session, user: fetched };
-    }
-    if (!session.userId) {
-      session.userId = user.id;
-      storeSession(session);
-    }
-    return { session, user };
-  }
-
-  async function fetchDiscordUser(accessToken) {
-    if (!accessToken) {
-      return null;
-    }
-    try {
-      const response = await fetch(DISCORD_USER_ENDPOINT, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+      const response = await fetch(url, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+        cache: "no-store"
       });
       if (!response.ok) {
-        return null;
+        throw new Error(`Session request failed with status ${response.status}`);
       }
-      return await response.json();
+      const data = await response.json();
+      return sanitizeSession(data);
+    } catch (error) {
+      console.warn("Failed to refresh session", error);
+      return null;
+    }
+  }
+
+  function persistSession(session) {
+    if (!session) {
+      storage.remove(SESSION_CACHE_KEY);
+      return;
+    }
+    try {
+      storage.set(SESSION_CACHE_KEY, JSON.stringify(session));
+    } catch (error) {
+      /* ignore */
+    }
+  }
+
+  function parseSessionCache(value) {
+    if (!value) {
+      return null;
+    }
+    try {
+      return sanitizeSession(JSON.parse(value));
     } catch (error) {
       return null;
+    }
+  }
+
+  function loadCachedSession() {
+    const raw = storage.get(SESSION_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = parseSessionCache(raw);
+    if (!parsed) {
+      storage.remove(SESSION_CACHE_KEY);
+    }
+    return parsed;
+  }
+
+  function broadcastSessionChange() {
+    try {
+      storage.set(SESSION_BROADCAST_KEY, String(Date.now()));
+    } catch (error) {
+      /* ignore */
     }
   }
 
@@ -425,8 +409,9 @@ window.tailwind.config = {
       button.type = "button";
       button.className =
         "magnetic group relative inline-flex items-center gap-2 rounded-xl px-6 py-3 text-lg font-semibold transition-colors";
-      if (config) {
+      if (config?.loginUrl) {
         button.className += " bg-discord hover:bg-discordDark";
+        button.title = "Login with Discord";
         button.addEventListener("click", (event) => {
           event.preventDefault();
           onLogin();
@@ -434,7 +419,7 @@ window.tailwind.config = {
       } else {
         button.className += " bg-white/10 cursor-not-allowed";
         button.disabled = true;
-        button.title = "Discord login is not configured yet.";
+        button.title = "Discord login is not configured.";
       }
       const label = document.createElement("span");
       label.textContent = "Login";
